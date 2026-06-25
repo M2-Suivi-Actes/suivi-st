@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="X-Frame-Options" content="DENY">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://script.google.com; connect-src 'self' https://script.google.com;">
+<title>SUIVI ST — Système de Gestion</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--border2:#21262d;
+  --text:#e6edf3;--text2:#8b949e;--text3:#484f58;
+  --accent:#2f81f7;--accent2:#1f6feb;
+  --green:#3fb950;--green-bg:rgba(63,185,80,.1);
+  --orange:#d29922;--orange-bg:rgba(210,153,34,.1);
+  --red:#f85149;--red-bg:rgba(248,81,73,.1);
+  --purple:#bc8cff;--radius:6px;
+  --font-mono:'IBM Plex Mono',monospace;--font:'IBM Plex Sans',sans-serif;
+  --ed-n:#2f81f7;--ed-n-bg:rgba(47,129,247,.12);
+  --ed-s:#d29922;--ed-s-bg:rgba(210,153,34,.12);
+  --sidebar-w:220px;
+}
+body.theme-light{--bg:#f6f8fa;--surface:#fff;--surface2:#f0f2f4;--border:#d0d7de;--border2:#e8ebed;--text:#1f2328;--text2:#636c76;--text3:#9198a1;--accent:#0969da;--accent2:#0550ae;--green:#1a7f37;--green-bg:rgba(26,127,55,.1);--orange:#9a6700;--orange-bg:rgba(154,103,0,.1);--red:#cf222e;--red-bg:rgba(207,34,46,.1);--purple:#8250df;}
+body.theme-blue{--bg:#0a1628;--surface:#0f2044;--surface2:#162952;--border:#1e3a6e;--border2:#162952;--text:#cdd9e5;--text2:#768ea8;--text3:#405870;--accent:#4d9de0;--accent2:#2d7cc4;--green:#3fb950;--green-bg:rgba(63,185,80,.1);--orange:#e3a94c;--orange-bg:rgba(227,169,76,.1);--red:#f47067;--red-bg:rgba(244,112,103,.1);--purple:#a689e3;}
+body.theme-forest{--bg:#0d1a12;--surface:#122118;--surface2:#192d1f;--border:#264d30;--border2:#1a3520;--text:#cde8c8;--text2:#7aaa72;--text3:#3d6638;--accent:#4caf50;--accent2:#388e3c;--green:#81c784;--green-bg:rgba(129,199,132,.1);--orange:#ffb74d;--orange-bg:rgba(255,183,77,.1);--red:#ef9a9a;--red-bg:rgba(239,154,154,.1);--purple:#ce93d8;}
+body.theme-mono{--bg:#111;--surface:#1a1a1a;--surface2:#222;--border:#333;--border2:#282828;--text:#eee;--text2:#aaa;--text3:#666;--accent:#eee;--accent2:#ccc;--green:#aaa;--green-bg:rgba(170,170,170,.1);--orange:#aaa;--orange-bg:rgba(170,170,170,.1);--red:#aaa;--red-bg:rgba(170,170,170,.1);--purple:#ccc;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;min-height:100vh;overflow-x:hidden}
+/* ===== LAYOUT ===== */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:transform .3s ease;z-index:50}
+.main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* ===== MOBILE SIDEBAR ===== */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;backdrop-filter:blur(2px)}
+.hamburger{display:none;background:none;border:none;color:var(--text);cursor:pointer;padding:8px;border-radius:var(--radius)}
+@media(max-width:768px){
+  .sidebar{position:fixed;top:0;left:0;height:100vh;transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay.show{display:block}
+  .hamburger{display:flex;align-items:center;justify-content:center}
+  .main{width:100%;overflow-x:hidden}
+  .content{padding:16px 14px}
+  .page-header{padding:14px 14px 0}
+  .page-header-top{padding-bottom:12px}
+  .page-title{font-size:16px}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .stat-value{font-size:20px}
+  .form-grid{grid-template-columns:1fr}
+  table{font-size:12px}
+  thead th{padding:7px 8px;font-size:10px}
+  td{padding:6px 8px;font-size:12px}
+  .modal{margin:10px;max-height:95vh}
+  .ah{grid-template-columns:22px 1fr 90px 90px 28px}
+  .ar{grid-template-columns:22px 1fr 90px 90px 28px}
+  .table-toolbar{flex-direction:column;align-items:stretch}
+  .toolbar-left{flex-wrap:wrap}
+  .search-box{max-width:100%}
+}
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .stat-value{font-size:18px}
+  .form-grid{grid-template-columns:1fr}
+  .fa{flex-direction:column}
+  .btn{justify-content:center}
+  .ah{grid-template-columns:20px 1fr 80px 80px 24px}
+  .ar{grid-template-columns:20px 1fr 80px 80px 24px}
+}
+/* ===== LOGO ===== */
+.logo{padding:16px 16px 10px;border-bottom:1px solid var(--border2)}
+.logo-title{font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--accent);letter-spacing:.05em}
+.logo-sub{font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--font-mono)}
+/* ===== NAV ===== */
+.nav{padding:8px 0;flex:1;overflow-y:auto}
+.nav-section{padding:14px 16px 4px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)}
+.nav-item{display:flex;align-items:center;gap:8px;padding:9px 16px;cursor:pointer;color:var(--text2);font-size:13px;transition:all .15s;border-left:2px solid transparent;min-height:44px}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(47,129,247,.1);color:var(--accent);border-left-color:var(--accent)}
+.nav-item svg{opacity:.7;flex-shrink:0}.nav-item.active svg{opacity:1}
+/* ===== SIDEBAR FOOTER ===== */
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border2)}
+.user-badge{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.user-name{font-size:13px;font-weight:600;color:var(--text)}.user-role{font-size:11px;color:var(--text3)}
+.btn-logout{display:flex;align-items:center;gap:6px;width:100%;padding:9px 12px;background:var(--red-bg);color:var(--red);border:1px solid rgba(248,81,73,.3);border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--font);min-height:44px}
+.btn-logout:hover{background:rgba(248,81,73,.2)}
+/* ===== PAGE HEADER ===== */
+.page-header{padding:20px 28px 0;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10}
+.page-header-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;gap:10px}
+.page-title{font-size:18px;font-weight:600}
+.page-tabs{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tab{padding:8px 14px;font-size:13px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;min-height:44px;display:flex;align-items:center}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.content{padding:24px 28px}
+/* ===== EDITION TAGS ===== */
+.edition-tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;font-family:var(--font-mono);white-space:nowrap}
+.ed-n{background:var(--ed-n-bg);color:var(--ed-n);border:1px solid rgba(47,129,247,.2)}
+.ed-s{background:var(--ed-s-bg);color:var(--ed-s);border:1px solid rgba(210,153,34,.2)}
+/* ===== STATS ===== */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;min-height:90px}
+.stat-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.stat-card.af{border-color:var(--accent);box-shadow:0 0 0 2px rgba(47,129,247,.2)}
+.stat-card.af::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent)}
+.stat-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.stat-value{font-size:22px;font-weight:600;font-family:var(--font-mono);margin-top:4px}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.sg .stat-value{color:var(--green)}.sb .stat-value{color:var(--accent)}.so .stat-value{color:var(--orange)}.sp .stat-value{color:var(--purple)}
+/* ===== TABLE ===== */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.table-toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap}
+.toolbar-left{display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap}
+.search-box{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;flex:1;max-width:280px;min-height:40px}
+.search-box input{background:none;border:none;outline:none;color:var(--text);font-size:14px;width:100%;font-family:var(--font)}
+.fsel{background:var(--bg);border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);padding:8px 10px;font-size:13px;outline:none;cursor:pointer;font-family:var(--font);min-height:40px}
+table{width:100%;border-collapse:collapse;min-width:600px}
+thead th{padding:9px 10px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border2);transition:background .1s;cursor:pointer}
+tbody tr:hover{background:var(--surface2)}tbody tr:last-child{border-bottom:none}
+td{padding:8px 10px;font-size:13px;vertical-align:middle}
+.mono{font-family:var(--font-mono);font-size:12px}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:500;font-family:var(--font-mono);white-space:nowrap}
+.bb{background:rgba(47,129,247,.12);color:var(--accent)}.bg2{background:rgba(139,148,158,.1);color:var(--text2)}
+.br{background:var(--red-bg);color:var(--red)}.bgr{background:var(--green-bg);color:var(--green)}
+.pager{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);flex-wrap:wrap;gap:8px}
+.pager-btns{display:flex;gap:4px;flex-wrap:wrap}
+.pb{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:4px;padding:6px 12px;font-size:12px;cursor:pointer;transition:all .15s;min-height:36px}
+.pb:hover:not(:disabled){background:var(--border);color:var(--text)}.pb:disabled{opacity:.4;cursor:default}
+.pb.act{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+/* ===== FORMS ===== */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fl{font-size:13px;font-weight:500;color:var(--text2)}.fl .req{color:var(--red)}
+.fi,.fs{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:10px 12px;font-size:14px;outline:none;transition:border-color .15s;font-family:var(--font);width:100%;min-height:44px;-webkit-appearance:none}
+.fi:focus,.fs:focus{border-color:var(--accent)}
+.fi.err{border-color:var(--red)}.fi.ok{border-color:var(--green)}
+.hint{font-size:11px;color:var(--text3)}.hint.err{color:var(--red)}.hint.ok{color:var(--green)}
+.fc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.fct{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px}
+.fa{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:var(--radius);font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;border:none;font-family:var(--font);min-height:44px;touch-action:manipulation}
+.bp{background:var(--accent2);color:#fff}.bp:hover{background:var(--accent)}
+.bs{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}.bs:hover{background:var(--border);color:var(--text)}
+.bd{background:var(--red-bg);color:var(--red);border:1px solid rgba(248,81,73,.3)}.bd:hover{background:rgba(248,81,73,.2)}
+.bsu{background:var(--green-bg);color:var(--green);border:1px solid rgba(63,185,80,.3)}.bsu:hover{background:rgba(63,185,80,.2)}
+.btn:disabled{opacity:.5;cursor:default}
+.be{background:rgba(188,140,255,.1);color:var(--purple);border:1px solid rgba(188,140,255,.3);padding:6px 10px;font-size:12px;border-radius:4px;cursor:pointer;font-family:var(--font);display:inline-flex;align-items:center;gap:3px;min-height:36px;touch-action:manipulation}
+.be:hover{background:rgba(188,140,255,.2)}
+.bdel{background:var(--red-bg);color:var(--red);border:1px solid rgba(248,81,73,.3);padding:6px 10px;font-size:12px;border-radius:4px;cursor:pointer;font-family:var(--font);display:inline-flex;align-items:center;gap:3px;min-height:36px;touch-action:manipulation}
+.bdel:hover{background:rgba(248,81,73,.2)}
+/* ===== ACTES TABLE ===== */
+.aw{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:10px}
+.ah{display:grid;grid-template-columns:26px 1fr 110px 110px 30px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.ahc{padding:7px 8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)}
+.ar2{display:grid;grid-template-columns:26px 1fr 110px 110px 30px;border-bottom:1px solid var(--border2);align-items:center}
+.ar2:last-child{border-bottom:none}.ar2:hover{background:rgba(47,129,247,.03)}
+.an{padding:5px 8px;font-size:11px;color:var(--text3);font-family:var(--font-mono);text-align:center}
+.ac{padding:2px 3px}
+.ac input,.ac select{background:transparent;border:none;border-radius:3px;color:var(--text);font-size:13px;font-family:var(--font-mono);width:100%;padding:6px;outline:none;min-height:36px}
+.ac input:focus,.ac select:focus{background:var(--surface2);border:1px solid var(--accent)}
+.ac input::placeholder{color:var(--text3)}
+.adel{display:flex;justify-content:center;padding:0 4px}
+.adb{background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:6px;border-radius:3px;min-width:30px;min-height:36px}
+.adb:hover{color:var(--red);background:var(--red-bg)}
+.af2{padding:8px 12px;display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-top:1px solid var(--border);font-size:11px}
+/* ===== ALERTS ===== */
+.alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:14px;line-height:1.5}
+.as2{background:var(--green-bg);border:1px solid rgba(63,185,80,.3);color:var(--green)}
+.ae2{background:var(--red-bg);border:1px solid rgba(248,81,73,.3);color:var(--red)}
+.ai2{background:rgba(47,129,247,.1);border:1px solid rgba(47,129,247,.3);color:var(--accent)}
+.aw3{background:var(--orange-bg);border:1px solid rgba(210,153,34,.3);color:var(--orange)}
+/* ===== MODALS ===== */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px)}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;width:100%;max-width:680px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.msm{max-width:500px}.mxs{max-width:400px}
+.mh{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.mt2{font-size:15px;font-weight:600}
+.mc{background:none;border:none;color:var(--text2);cursor:pointer;padding:4px 8px;border-radius:4px;font-size:18px;line-height:1;min-height:36px;min-width:36px}
+.mc:hover{color:var(--text);background:var(--surface2)}
+.mb3{padding:20px}.mf{padding:16px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+/* ===== DETAIL ===== */
+.dr{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+.dl{font-size:11px;color:var(--text3);min-width:120px;flex-shrink:0}.dv{font-size:13px;color:var(--text)}
+.dst{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px;margin-top:14px}
+/* ===== RESP BADGES ===== */
+.rt{display:inline-flex;align-items:center;justify-content:center;width:36px;height:22px;border-radius:3px;font-size:11px;font-weight:700;font-family:var(--font-mono)}
+.rD1{background:rgba(47,129,247,.15);color:#58a6ff}.rD2{background:rgba(63,185,80,.12);color:var(--green)}
+.rD3{background:rgba(188,140,255,.12);color:var(--purple)}.rD4{background:rgba(210,153,34,.12);color:var(--orange)}
+.rD5{background:rgba(248,81,73,.12);color:var(--red)}.rD6{background:rgba(86,182,194,.12);color:#56b6c2}
+.rD7{background:rgba(209,154,102,.12);color:#e5c07b}.rD8{background:rgba(97,175,239,.12);color:#61afef}
+.rVONJY{background:rgba(198,120,221,.12);color:#c678dd}
+.eb{font-family:var(--font-mono);font-size:11px;background:rgba(188,140,255,.1);color:var(--purple);padding:2px 6px;border-radius:3px}
+/* ===== THEMES ===== */
+.tg{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+.tb{border:2px solid var(--border);border-radius:8px;padding:10px 4px;cursor:pointer;text-align:center;transition:all .2s;background:none;min-height:70px}
+.tb:hover{border-color:var(--accent)}.tb.act2{border-color:var(--accent);box-shadow:0 0 0 2px rgba(47,129,247,.2)}
+.tp{width:100%;height:26px;border-radius:4px;margin-bottom:5px}.tn{font-size:11px;color:var(--text2);font-weight:500}
+/* ===== UPLOAD ===== */
+.uz{border:2px dashed var(--border);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg)}
+.uz:hover{border-color:var(--accent);background:rgba(47,129,247,.04)}
+/* ===== RAPPORT ===== */
+.rs{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.rt3{font-size:14px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.rsub{font-size:12px;color:var(--text2);margin-bottom:16px}
+/* ===== OD STATUS ===== */
+.ods{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;font-size:12px;font-weight:600}
+.odc{background:var(--green-bg);border:1px solid rgba(63,185,80,.3);color:var(--green)}
+.odp{background:var(--orange-bg);border:1px solid rgba(210,153,34,.3);color:var(--orange)}
+.odd{background:var(--red-bg);border:1px solid rgba(248,81,73,.3);color:var(--red)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}
+/* ===== SECURITY ===== */
+.lock-banner{background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.3);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;color:var(--red);font-size:13px}
+.attempt-counter{font-size:11px;color:var(--orange);margin-top:6px}
+.pwd-strength{height:4px;border-radius:2px;margin-top:6px;transition:all .3s;background:var(--border)}
+.pwd-strength.weak{background:var(--red);width:33%}
+.pwd-strength.medium{background:var(--orange);width:66%}
+.pwd-strength.strong{background:var(--green);width:100%}
+.session-badge{font-size:11px;color:var(--text3);font-family:var(--font-mono)}
+/* ===== LOGIN ===== */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:28px;width:100%;max-width:380px}
+/* ===== SECTION ===== */
+.st2{font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.st2::after{content:'';flex:1;height:1px;background:var(--border)}
+/* ===== UTIL ===== */
+.hidden{display:none!important}.divider{height:1px;background:var(--border);margin:16px 0}
+.es{text-align:center;padding:40px 20px;color:var(--text3)}.et{font-size:14px;color:var(--text2);font-weight:500}.esb{font-size:12px;margin-top:4px}
+.hl{color:var(--accent)}.tsm{font-size:12px}.txs{font-size:11px}.tm{color:var(--text2)}.tf{color:var(--text3)}.mb4{margin-bottom:16px}.mt2{margin-top:8px}.wf{width:100%}
+/* ===== TOAST ===== */
+.tc{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:999;max-width:calc(100vw - 40px)}
+.to{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-size:13px;display:flex;align-items:center;gap:8px;min-width:260px;max-width:100%;animation:sI .2s ease;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.ts{border-color:rgba(63,185,80,.4)}.te{border-color:rgba(248,81,73,.4)}
+@keyframes sI{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+/* ===== BMSBUTTON ===== */
+.bms{background:#0078d4;color:#fff;padding:9px 16px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:var(--font);min-height:44px}
+.bms:hover{background:#106ebe}
+</style>
+<!-- LOGIN -->
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-family:var(--font-mono);font-size:22px;font-weight:600;color:var(--accent);letter-spacing:.1em">SUIVI ST</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px">Système de Gestion des Numéros ST</div>
+    </div>
+    <div id="lockBanner" class="lock-banner hidden">🔒 Compte verrouillé. Contactez le Chef de Bureau.</div>
+    <div id="loginAlert"></div>
+    <div class="fg mb4">
+      <label class="fl">Utilisateur</label>
+      <select id="loginUser" class="fs">
+        <option value="">— Sélectionner —</option>
+        <optgroup label="Comptables">
+          <option value="VICKY">VICKY</option><option value="ROSA">ROSA</option>
+          <option value="MIHANTA">MIHANTA</option><option value="FANILO">FANILO</option><option value="TIANA">TIANA</option>
+        </optgroup>
+        <optgroup label="Administration"><option value="CHEF_BUREAU">CHEF DE BUREAU</option></optgroup>
+      </select>
+    </div>
+    <div class="fg mb4">
+      <label class="fl">Mot de passe</label>
+      <input type="password" id="loginPass" class="fi" placeholder="••••••••" autocomplete="current-password" />
+      <div class="attempt-counter" id="attemptCounter"></div>
+    </div>
+    <button class="btn bp wf" onclick="doLogin()" style="justify-content:center;margin-bottom:10px" id="loginBtn">Se connecter</button>
+    <button class="btn bs wf" onclick="showForgotAdmin()" style="justify-content:center;font-size:12px">Mot de passe oublié (Chef de Bureau) ?</button>
+  </div>
+</div>
+
+<!-- FIRST LOGIN - SET PASSWORD -->
+<div id="firstLoginScreen" class="login-wrap hidden">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-family:var(--font-mono);font-size:20px;font-weight:600;color:var(--accent)">SUIVI ST</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:6px">Première connexion — Créez votre mot de passe</div>
+    </div>
+    <div class="alert ai2" style="font-size:12px">Bienvenue <strong id="firstLoginUser"></strong> ! Choisissez un mot de passe sécurisé pour votre compte.</div>
+    <div id="firstLoginAlert"></div>
+    <div class="fg mb4">
+      <label class="fl">Nouveau mot de passe <span class="req">*</span></label>
+      <input type="password" id="newPwd1" class="fi" placeholder="Minimum 8 caractères" oninput="checkPwdStrength()" autocomplete="new-password" />
+      <div class="pwd-strength" id="pwdStrengthBar"></div>
+      <div class="hint" id="pwdStrengthHint"></div>
+    </div>
+    <div class="fg mb4">
+      <label class="fl">Confirmer le mot de passe <span class="req">*</span></label>
+      <input type="password" id="newPwd2" class="fi" placeholder="Répétez le mot de passe" autocomplete="new-password" />
+    </div>
+    <button class="btn bp wf" onclick="setFirstPassword()" style="justify-content:center">Créer mon mot de passe</button>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD ADMIN -->
+<div id="forgotAdminScreen" class="login-wrap hidden">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-family:var(--font-mono);font-size:18px;font-weight:600;color:var(--accent)">Récupération Chef de Bureau</div>
+    </div>
+    <div id="forgotAdminAlert"></div>
+    <div class="alert ai2" style="font-size:12px">Entrez le code de récupération à 8 chiffres qui vous a été fourni lors de la configuration initiale.</div>
+    <div class="fg mb4">
+      <label class="fl">Code de récupération</label>
+      <input type="text" id="recoveryCode" class="fi" placeholder="XXXX-XXXX" maxlength="9" style="font-family:var(--font-mono);letter-spacing:.1em;font-size:18px;text-align:center" />
+    </div>
+    <div class="fg mb4">
+      <label class="fl">Nouveau mot de passe</label>
+      <input type="password" id="recoveryNewPwd" class="fi" placeholder="Minimum 8 caractères" autocomplete="new-password" />
+    </div>
+    <div class="fg mb4">
+      <label class="fl">Confirmer le mot de passe</label>
+      <input type="password" id="recoveryNewPwd2" class="fi" placeholder="Répétez le mot de passe" autocomplete="new-password" />
+    </div>
+    <div class="fa">
+      <button class="btn bp" onclick="doRecovery()">Réinitialiser</button>
+      <button class="btn bs" onclick="showLogin()">Retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen" class="app hidden">
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <div class="sidebar" id="sidebar">
+    <div class="logo">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="logo-title">SUIVI ST</div>
+          <div class="logo-sub">v5.0 — 2026</div>
+        </div>
+        <button class="mc" onclick="closeSidebar()" style="display:none" id="sidebarCloseBtn">✕</button>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Principal</div>
+      <div class="nav-item active" onclick="showPage('dashboard');closeSidebar()" id="nav-dashboard">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Tableau de bord
+      </div>
+      <div class="nav-item" onclick="showPage('liste');closeSidebar()" id="nav-liste">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Liste des ST
+      </div>
+      <div class="nav-item" onclick="openSaisieNew();closeSidebar()" id="nav-saisie">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Nouvelle saisie
+      </div>
+      <div class="nav-item" onclick="showPage('recherche');closeSidebar()" id="nav-recherche">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Recherche ST
+      </div>
+      <div class="nav-item" onclick="showPage('rapports');closeSidebar()" id="nav-rapports">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Rapports Excel
+      </div>
+      <div id="nav-bureau-section" class="hidden">
+        <div class="nav-section">Chef de Bureau</div>
+        <div class="nav-item" onclick="showPage('cesp');closeSidebar()" id="nav-cesp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Import N° ST Resp.
+        </div>
+        <div class="nav-item" onclick="showPage('donnees_cesp');closeSidebar()" id="nav-donnees_cesp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>Données Responsables
+        </div>
+      </div>
+      <div class="nav-section">Paramètres</div>
+      <div class="nav-item" onclick="showPage('config');closeSidebar()" id="nav-config">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M19.07 19.07l-1.41-1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>Configuration
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-badge">
+        <div class="user-avatar" id="sidebarAvatar">V</div>
+        <div>
+          <div class="user-name" id="sidebarUser">VICKY</div>
+          <div class="user-role" id="sidebarRole">Comptable</div>
+        </div>
+      </div>
+      <div class="session-badge" id="sessionTimer" style="margin-bottom:8px;text-align:center"></div>
+      <button class="btn-logout" onclick="doLogout()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Déconnexion
+      </button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page-content">
+      <div class="page-header">
+        <div class="page-header-top">
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="hamburger" onclick="openSidebar()" id="hamburgerBtn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div class="page-title">Tableau de bord — <span id="dashUserLabel" style="color:var(--accent)"></span></div>
+          </div>
+          <div id="odStatusBar"></div>
+        </div>
+      </div>
+      <div class="content">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--text2);font-weight:500">Exploitation :</span>
+          <div id="dashExploitBtns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <span style="font-size:12px;color:var(--text2);font-weight:500;margin-left:4px">Édition :</span>
+          <button id="filterBtnN" onclick="toggleDashEdition('NORMALE')" style="padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--ed-n);background:transparent;color:var(--ed-n);min-height:32px">NORMALE</button>
+          <button id="filterBtnS" onclick="toggleDashEdition('SPECIALE')" style="padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--ed-s);background:transparent;color:var(--ed-s);min-height:32px">SPÉCIALE</button>
+          <span id="cptWrap" style="display:none;font-size:12px;color:var(--text2);font-weight:500;margin-left:4px">Comptable :</span>
+          <div id="cptBtns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <button onclick="clearDashFilters()" id="btnClearDash" class="btn bs txs hidden" style="padding:4px 10px">✕ Tout</button>
+        </div>
+        <div class="stats-grid" id="dashStats"></div>
+        <div class="st2"><span id="dashTableTitle">Activité récente</span></div>
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <div class="toolbar-left"><span class="tsm tm" id="dashTableCount"></span></div>
+            <button class="btn bp tsm" onclick="openSaisieNew()">+ Nouvelle saisie</button>
+          </div>
+          <div class="table-scroll"><div id="dashTable"></div></div>
+        </div>
+      </div>
+    </div>
+    <!-- LISTE -->
+    <div id="page-liste" class="page-content hidden">
+      <div class="page-header">
+        <div class="page-header-top">
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="hamburger" onclick="openSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+            <div class="page-title">Liste des ST</div>
+          </div>
+        </div>
+        <div class="page-tabs" id="listeSheetTabs"></div>
+      </div>
+      <div class="content">
+        <div class="table-wrap">
+          <div class="table-toolbar">
+            <div class="toolbar-left">
+              <div class="search-box"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="listSearch" placeholder="ST, IM, Sigle..." oninput="filterList()"></div>
+              <select class="fsel" id="filterEdition" onchange="filterList()"><option value="">Toutes éditions</option><option value="NORMALE">Normale</option><option value="SPECIALE">Spéciale</option></select>
+              <select class="fsel" id="filterExploitation" onchange="filterList()"><option value="">Toutes exploitations</option></select>
+              <select class="fsel" id="filterSigle" onchange="filterList()"><option value="">Tous sigles</option></select>
+              <select class="fsel" id="filterResp" onchange="filterList()"><option value="">Tous resp.</option><option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option><option value="D4">D4</option><option value="D5">D5</option><option value="D6">D6</option><option value="D7">D7</option><option value="D8">D8</option><option value="VONJY">VONJY</option><option value="????">Non assigné</option></select>
+            </div>
+            <span class="tsm tm" id="listCount">—</span>
+          </div>
+          <div class="table-scroll"><div id="listTableBody"></div></div>
+          <div class="pager" id="listPager"></div>
+        </div>
+      </div>
+    </div>
+    <!-- RECHERCHE -->
+    <div id="page-recherche" class="page-content hidden">
+      <div class="page-header"><div class="page-header-top"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="openSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">Recherche ST</div></div></div></div>
+      <div class="content"><div class="fc"><div class="fg"><label class="fl">Numéro ST ou IM</label><input type="text" id="searchInput" class="fi" placeholder="Entrer un N° ST ou IM..." oninput="doSearch()" /></div></div><div id="searchResults"></div></div>
+    </div>
+    <!-- RAPPORTS -->
+    <div id="page-rapports" class="page-content hidden">
+      <div class="page-header"><div class="page-header-top"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="openSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">Rapports Excel</div></div></div></div>
+      <div class="content">
+        <div class="rs"><div class="rt3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Rapport 1 — Impression Pièce</div><div class="rsub">Liste des actes du comptable pour une période/édition</div>
+          <div class="form-grid" style="max-width:600px">
+            <div class="fg"><label class="fl">Comptable <span class="req">*</span></label><select id="rp1User" class="fs"></select></div>
+            <div class="fg"><label class="fl">Édition <span class="req">*</span></label><select id="rp1Edition" class="fs" onchange="updateRpPeriodes('rp1')"><option value="">—</option><option value="NORMALE">Normale</option><option value="SPECIALE">Spéciale</option></select></div>
+            <div class="fg"><label class="fl">Période <span class="req">*</span></label><select id="rp1Periode" class="fs"><option value="">—</option></select></div>
+          </div>
+          <div class="fa"><button class="btn bp" onclick="exportRapport1()">⬇ Exporter Excel</button></div>
+        </div>
+        <div class="rs"><div class="rt3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>Rapport 2 — Nombre d'Actes par Comptable</div><div class="rsub">Synthèse par comptable pour une période/édition</div>
+          <div class="form-grid" style="max-width:500px">
+            <div class="fg"><label class="fl">Édition <span class="req">*</span></label><select id="rp2Edition" class="fs" onchange="updateRp2Periodes()"><option value="">—</option><option value="NORMALE">Normale</option><option value="SPECIALE">Spéciale</option></select></div>
+            <div class="fg"><label class="fl">Période <span class="req">*</span></label><select id="rp2Periode" class="fs" onchange="updateRapport2Preview()"><option value="">—</option></select></div>
+          </div>
+          <div id="rp2Preview" style="margin-top:16px"></div>
+          <div class="fa"><button class="btn bp" onclick="exportRapport2()">⬇ Exporter Excel</button></div>
+        </div>
+      </div>
+    </div>
+    <!-- CESP -->
+    <div id="page-cesp" class="page-content hidden">
+      <div class="page-header"><div class="page-header-top"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="openSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">Import N° ST — Responsables</div></div></div></div>
+      <div class="content">
+        <div class="alert ai2">Structure : <strong>DATE CESP | D1 | D2 | D3 | D4 | D5 | D6 | D7 | D8 | VONJY</strong></div>
+        <div class="fc"><div class="fct">Importer fichier Excel</div>
+          <div class="uz" onclick="document.getElementById('cespFileInput').click()"><input type="file" id="cespFileInput" accept=".xlsx,.xls,.csv" onchange="handleCESPFile(event)" style="display:none"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text3);margin-bottom:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><div style="font-size:14px;color:var(--text2);margin-bottom:4px">Cliquer pour sélectionner</div><div style="font-size:12px;color:var(--text3)">.xlsx / .xls / .csv</div></div>
+          <div id="cespImportStatus" style="margin-top:12px"></div><div id="cespImportPreview" style="margin-top:12px"></div>
+          <div class="fa" id="cespImportActions" style="display:none"><button class="btn bp" onclick="confirmCESPImport()">Confirmer l'import</button><button class="btn bs" onclick="cancelCESPImport()">Annuler</button></div>
+        </div>
+        <div class="fc"><div class="fct">Saisie manuelle</div>
+          <div class="fg" style="max-width:240px;margin-bottom:14px"><label class="fl">Date <span class="req">*</span></label><input type="date" id="cespManualDate" class="fi" /></div>
+          <div id="cespManualGrid" class="form-grid"></div>
+          <div class="fa"><button class="btn bp" onclick="submitCESPManual()">Enregistrer</button><button class="btn bs" onclick="resetCespManual()">Réinitialiser</button></div>
+          <div id="cespManualAlert" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+    <!-- DONNEES CESP -->
+    <div id="page-donnees_cesp" class="page-content hidden">
+      <div class="page-header"><div class="page-header-top"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="openSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">Données Responsables</div></div></div></div>
+      <div class="content"><div class="table-wrap"><div class="table-toolbar"><div class="toolbar-left"><div class="search-box"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="cespSearch" placeholder="N° ST..." oninput="filterCESP()"></div></div><span class="tsm tm" id="cespCount">—</span></div><div class="table-scroll"><div id="cespTableBody"></div></div><div class="pager" id="cespPager"></div></div></div>
+    </div>
+    <!-- CONFIG -->
+    <div id="page-config" class="page-content hidden">
+      <div class="page-header"><div class="page-header-top"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="openSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">Configuration</div></div></div></div>
+      <div class="content" id="configContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SAISIE -->
+<div id="saisieModal" class="modal-bg hidden">
+  <div class="modal" style="max-width:720px">
+    <div class="mh"><div class="mt2" id="saisieModalTitle">Nouvelle saisie</div><button class="mc" onclick="closeSaisieModal()">✕</button></div>
+    <div class="mb3">
+      <div id="saisieAlert"></div>
+      <div class="fc">
+        <div class="fct">Informations DCSAC</div>
+        <div class="form-grid">
+          <div class="fg"><label class="fl">Date DCSAC <span class="req">*</span></label><input type="date" id="fDateDCSAC" class="fi" /></div>
+          <div class="fg"><label class="fl" id="fSTLabel">Numéro ST <span class="req">*</span></label><input type="number" id="fNumeroST" class="fi" placeholder="ex: 8500" oninput="validateST()" /><div class="hint" id="stHint"></div></div>
+        </div>
+        <div class="form-grid" style="margin-top:12px">
+          <div class="fg"><label class="fl">Type d'édition <span class="req">*</span></label><select id="fEdition" class="fs" onchange="onEditionChange()"><option value="">— Choisir —</option><option value="NORMALE">📋 Édition Normale</option><option value="SPECIALE">⭐ Édition Spéciale</option></select></div>
+          <div class="fg"><label class="fl">Exploitation <span class="req">*</span></label><select id="fExploitation" class="fs" onchange="validateSP()"><option value="">— Choisir —</option></select><div class="hint" id="exploitHint"></div></div>
+        </div>
+      </div>
+      <div class="fc">
+        <div class="fct">Information des Actes</div>
+        <div class="form-grid" style="margin-bottom:14px">
+          <div class="fg"><label class="fl" id="fSigleLabel">Sigle <span class="req" id="sigleReqMark">*</span></label><input type="text" id="fSigle" class="fi" placeholder="ex: 605" maxlength="3" oninput="validateSP()" style="font-family:var(--font-mono)" /><div class="hint" id="sigleHint">3 chiffres</div></div>
+          <div class="fg"><label class="fl" id="fPaquetLabel">Paquet <span class="req" id="paquetReqMark">*</span></label><input type="text" id="fPaquet" class="fi" placeholder="ex: 01, 2A" maxlength="3" oninput="validateSP()" style="font-family:var(--font-mono)" /><div class="hint" id="paquetHint">Max 3 car.</div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">Actes — IM / MVT / Chapitre</div>
+          <button class="btn bsu" style="padding:6px 14px;font-size:13px" onclick="addActeRow()">+ Acte</button>
+        </div>
+        <div class="aw"><div class="ah"><div class="ahc" style="text-align:center">#</div><div class="ahc">IM *</div><div class="ahc">MVT *</div><div class="ahc">Chapitre</div><div class="ahc"></div></div><div id="actesRows"></div></div>
+        <div class="af2"><span id="actesCount" style="color:var(--text3)">0 / 10 actes</span><span id="actesWarn" class="hidden" style="color:var(--orange)">⚠ Max 10 actes</span></div>
+      </div>
+      <div class="fc"><div class="fct" style="color:var(--green)">Données Responsable (auto)</div>
+        <div class="form-grid">
+          <div class="fg"><label class="fl">Responsable</label><input type="text" id="fRespCESP" class="fi" readonly style="color:var(--text3)" value="Auto" /></div>
+          <div class="fg"><label class="fl">Date</label><input type="text" id="fDateCESP" class="fi" readonly style="color:var(--text3)" value="Auto" /></div>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeSaisieModal()">Annuler</button><button class="btn bp" onclick="submitSaisie()"><span id="saisieSubmitLabel">Enregistrer</span></button></div>
+  </div>
+</div>
+
+<!-- MODAL DETAIL -->
+<div id="detailModal" class="modal-bg hidden">
+  <div class="modal msm"><div class="mh"><div class="mt2" id="detailTitle">Détail ST</div><button class="mc" onclick="closeDetail()">✕</button></div><div class="mb3" id="detailBody"></div><div class="mf" id="detailFooter"></div></div>
+</div>
+
+<!-- MODAL CONFIRM DELETE -->
+<div id="confirmModal" class="modal-bg hidden">
+  <div class="modal mxs">
+    <div class="mh"><div class="mt2" style="color:var(--red)">⚠ Suppression irréversible</div><button class="mc" onclick="closeConfirm()">✕</button></div>
+    <div class="mb3"><div class="alert ae2"><strong>Cette opération est définitive.</strong><br>La ligne sera supprimée du logiciel ET de Google Sheets.</div><div id="confirmMsg" style="font-size:13px;color:var(--text2);margin-top:8px"></div></div>
+    <div class="mf"><button class="btn bs" onclick="closeConfirm()">Annuler</button><button class="btn bd" id="confirmOkBtn">🗑 Supprimer</button></div>
+  </div>
+</div>
+
+<!-- MODAL RESET PASSWORD (admin) -->
+<div id="resetPwdModal" class="modal-bg hidden">
+  <div class="modal mxs">
+    <div class="mh"><div class="mt2">Réinitialiser mot de passe</div><button class="mc" onclick="document.getElementById('resetPwdModal').classList.add('hidden')">✕</button></div>
+    <div class="mb3">
+      <div class="fg mb4"><label class="fl">Utilisateur</label><select id="resetPwdUser" class="fs"><option value="">—</option></select></div>
+      <div class="alert aw3" style="font-size:12px">L'utilisateur devra créer un nouveau mot de passe à sa prochaine connexion.</div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="document.getElementById('resetPwdModal').classList.add('hidden')">Annuler</button><button class="btn bd" onclick="doResetUserPwd()">Réinitialiser</button></div>
+  </div>
+</div>
+
+<div class="tc" id="toastContainer"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ======== CONSTANTS ========
+const MVT=['1','2','2A','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29','30','31','32','33','34','35','36','37','38','39','40','41','42','43','44','45','46','47','48','49','50','51','60','61','62','63','64','65','66','67','68','69','70','71','72','73','74','75','76','77','78','80','81','82','83','84','85','86','90'];
+const CHAP_DEF=['210013','210014','210110','210113','210114','210115','210117','210129','210130','260110','310130','340110','350110','380110','410100','410110','430110','440110','450110','510110','520110','530110','610110','620110','630110','810110'];
+const RESP=['D1','D2','D3','D4','D5','D6','D7','D8','VONJY'];
+const COMPTABLES=['VICKY','ROSA','MIHANTA','FANILO','TIANA'];
+const THEMES=[{id:'dark',name:'Sombre',c:['#0d1117','#161b22','#2f81f7']},{id:'light',name:'Clair',c:['#f6f8fa','#fff','#0969da']},{id:'blue',name:'Bleu Acier',c:['#0a1628','#0f2044','#4d9de0']},{id:'forest',name:'Forêt',c:['#0d1a12','#122118','#4caf50']},{id:'mono',name:'Mono',c:['#111','#1a1a1a','#eee']}];
+const MAX_ATTEMPTS=5;
+const SESSION_TIMEOUT=30*60*1000; // 30 min
+const PS=20;
+
+// ======== STATE ========
+let cu=null,editEntry=null,acteRows=[],pendingCESP=null,curDetail=null,confirmCb=null;
+let dashF={exploitation:null,edition:null,stat:null,comptable:null};
+let listPage=1,listeRows=[],listeSheet='ALL',cespPage=1,cespFilt=[];
+let sessionTimer=null,sessionExpiry=null;
+let firstLoginUser=null;
+
+let state=loadState();
+
+function loadState(){
+  try{const s=localStorage.getItem('sst_v6');if(s)return JSON.parse(s);}catch(e){}
+  return{
+    sheets:{VICKY:[],ROSA:[],MIHANTA:[],FANILO:[],TIANA:[]},
+    cesp:[],
+    chapitres:[...CHAP_DEF],
+    config:{exploitation:'Juin 2026',theme:'dark',gsUrl:'',gsConnected:false},
+    // passwords stored as SHA-256 hashes
+    passwords:{},
+    // login attempts tracking
+    attempts:{},
+    // locked accounts
+    locked:{},
+    // admin recovery code (8 digits)
+    recoveryCode:null,
+    preloaded:false
+  };
+}
+function saveState(){localStorage.setItem('sst_v6',JSON.stringify(state));}
+
+// ======== SECURITY: SHA-256 ========
+async function sha256(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function escHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ======== SESSION ========
+function startSession(){
+  sessionExpiry=Date.now()+SESSION_TIMEOUT;
+  clearInterval(sessionTimer);
+  sessionTimer=setInterval(()=>{
+    const rem=sessionExpiry-Date.now();
+    if(rem<=0){doLogout(true);return;}
+    const m=Math.floor(rem/60000),s=Math.floor((rem%60000)/1000);
+    const el=document.getElementById('sessionTimer');
+    if(el)el.textContent=`Session: ${m}:${s.toString().padStart(2,'0')}`;
+  },1000);
+  // Reset on activity
+  ['click','keypress','touchstart'].forEach(ev=>document.addEventListener(ev,resetSession,{passive:true}));
+}
+function resetSession(){sessionExpiry=Date.now()+SESSION_TIMEOUT;}
+function stopSession(){clearInterval(sessionTimer);['click','keypress','touchstart'].forEach(ev=>document.removeEventListener(ev,resetSession));}
+
+// ======== PRELOAD DATA ========
+function preloadData(){
+  if(state.preloaded)return;
+  state.sheets.VICKY=[
+    {date_dcsac:'2026-05-18',numero_st:5351,sigle:'608',paquet:'02',edition:'NORMALE',exploitation:'Juin 2026',resp_cesp:'????',date_cesp:'',createdBy:'VICKY',actes:[{im:'4529806',mvt:'17',chapitre:'620110'},{im:'4574601',mvt:'63',chapitre:'620110'}]},
+    {date_dcsac:'2026-05-22',numero_st:7823,sigle:'605',paquet:'01',edition:'NORMALE',exploitation:'Juin 2026',resp_cesp:'D5',date_cesp:'2026-05-29',createdBy:'VICKY',actes:[{im:'4580640',mvt:'61',chapitre:'450110'}]},
+    {date_dcsac:'2026-05-15',numero_st:4200,sigle:'617',paquet:'03',edition:'SPECIALE',exploitation:'Mai 2026',resp_cesp:'D3',date_cesp:'2026-05-20',createdBy:'VICKY',actes:[{im:'2778192',mvt:'19',chapitre:'510110'},{im:'2778192',mvt:'50',chapitre:'510110'},{im:'3548022',mvt:'17',chapitre:'210110'},{im:'2598473',mvt:'20',chapitre:'710110'},{im:'3585573',mvt:'69',chapitre:'410110'},{im:'1596223',mvt:'03',chapitre:'260110'},{im:'1596223',mvt:'71',chapitre:'210130'},{im:'1596223',mvt:'72',chapitre:'210130'},{im:'4569872',mvt:'63',chapitre:'310110'}]}
+  ];
+  state.sheets.ROSA=[
+    {date_dcsac:'2026-05-10',numero_st:4500,sigle:'605',paquet:'03',edition:'NORMALE',exploitation:'Mai 2026',resp_cesp:'D3',date_cesp:'2026-05-15',createdBy:'ROSA',actes:[{im:'3812342',mvt:'60',chapitre:'450110'}]},
+    {date_dcsac:'2026-05-20',numero_st:7900,sigle:'608',paquet:'01',edition:'SPECIALE',exploitation:'Juin 2026',resp_cesp:'D2',date_cesp:'2026-05-28',createdBy:'ROSA',actes:[{im:'5039993',mvt:'1',chapitre:'620110'},{im:'5039993',mvt:'63',chapitre:'620110'}]}
+  ];
+  state.sheets.MIHANTA=[{date_dcsac:'2026-06-02',numero_st:9100,sigle:'612',paquet:'04',edition:'NORMALE',exploitation:'Juin 2026',resp_cesp:'????',date_cesp:'',createdBy:'MIHANTA',actes:[{im:'3122451',mvt:'5',chapitre:'520110'},{im:'3122451',mvt:'61',chapitre:'520110'}]}];
+  state.cesp=[{date_cesp:'2026-05-22',D1:7577,D2:7711,D3:7628,D4:7725,D5:7631,D6:7649,D7:7622,D8:7651,VONJY:null},{date_cesp:'2026-05-29',D1:7823,D2:null,D3:null,D4:null,D5:7825,D6:null,D7:null,D8:null,VONJY:null}];
+  state.preloaded=true;
+  saveState();
+}
+
+// ======== AUTH ========
+async function doLogin(){
+  const u=document.getElementById('loginUser').value;
+  const p=document.getElementById('loginPass').value;
+  const al=document.getElementById('loginAlert');
+  al.innerHTML='';
+  if(!u){al.innerHTML='<div class="alert ae2">Sélectionnez un utilisateur.</div>';return;}
+  // Check locked
+  if(state.locked&&state.locked[u]){
+    document.getElementById('lockBanner').classList.remove('hidden');
+    return;
+  }
+  // Hash password
+  const hash=await sha256(p);
+  // Check if first login (no password set)
+  if(!state.passwords||!state.passwords[u]){
+    // First login — show set password screen
+    firstLoginUser=u;
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('firstLoginScreen').classList.remove('hidden');
+    document.getElementById('firstLoginUser').textContent=u==='CHEF_BUREAU'?'CHEF DE BUREAU':u;
+    return;
+  }
+  // Verify password
+  if(state.passwords[u]!==hash){
+    if(!state.attempts)state.attempts={};
+    state.attempts[u]=(state.attempts[u]||0)+1;
+    const rem=MAX_ATTEMPTS-state.attempts[u];
+    if(rem<=0){
+      if(!state.locked)state.locked={};
+      state.locked[u]=true;
+      saveState();
+      document.getElementById('lockBanner').classList.remove('hidden');
+      document.getElementById('loginBtn').disabled=true;
+      document.getElementById('attemptCounter').textContent='';
+      return;
+    }
+    saveState();
+    al.innerHTML='<div class="alert ae2">Mot de passe incorrect.</div>';
+    document.getElementById('attemptCounter').textContent=`${state.attempts[u]}/${MAX_ATTEMPTS} tentatives — ${rem} restante(s)`;
+    document.getElementById('loginPass').value='';
+    return;
+  }
+  // Success
+  if(state.attempts)state.attempts[u]=0;
+  saveState();
+  loginSuccess(u);
+}
+
+function loginSuccess(u){
+  preloadData();
+  cu={name:u,role:u==='CHEF_BUREAU'?'chef':'comptable',sheet:u==='CHEF_BUREAU'?null:u};
+  applyTheme(state.config?.theme||'dark');
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('firstLoginScreen').classList.add('hidden');
+  document.getElementById('appScreen').classList.remove('hidden');
+  const dn=u==='CHEF_BUREAU'?'CHEF DE BUREAU':u;
+  document.getElementById('sidebarAvatar').textContent=dn[0];
+  document.getElementById('sidebarUser').textContent=dn;
+  document.getElementById('sidebarRole').textContent=cu.role==='chef'?'Chef de Bureau':'Comptable';
+  if(cu.role==='chef')document.getElementById('nav-bureau-section').classList.remove('hidden');
+  updateOdBar();startSession();
+  showPage('dashboard');
+  // Check if admin recovery code exists
+  if(cu.role==='chef'&&!state.recoveryCode)generateRecoveryCode();
+}
+
+async function setFirstPassword(){
+  const p1=document.getElementById('newPwd1').value;
+  const p2=document.getElementById('newPwd2').value;
+  const al=document.getElementById('firstLoginAlert');
+  al.innerHTML='';
+  if(p1.length<8){al.innerHTML='<div class="alert ae2">Mot de passe trop court (minimum 8 caractères).</div>';return;}
+  if(p1!==p2){al.innerHTML='<div class="alert ae2">Les mots de passe ne correspondent pas.</div>';return;}
+  if(!checkPwdStrengthVal(p1)){al.innerHTML='<div class="alert ae2">Mot de passe trop faible. Utilisez lettres, chiffres et symboles.</div>';return;}
+  const hash=await sha256(p1);
+  if(!state.passwords)state.passwords={};
+  state.passwords[firstLoginUser]=hash;
+  saveState();
+  toast('✓ Mot de passe créé avec succès','success');
+  loginSuccess(firstLoginUser);
+}
+
+function checkPwdStrength(){
+  const p=document.getElementById('newPwd1').value;
+  const bar=document.getElementById('pwdStrengthBar');
+  const hint=document.getElementById('pwdStrengthHint');
+  if(!p){bar.className='pwd-strength';hint.textContent='';return;}
+  const score=getPwdScore(p);
+  if(score<2){bar.className='pwd-strength weak';hint.textContent='Faible';hint.style.color='var(--red)';}
+  else if(score<4){bar.className='pwd-strength medium';hint.textContent='Moyen';hint.style.color='var(--orange)';}
+  else{bar.className='pwd-strength strong';hint.textContent='Fort ✓';hint.style.color='var(--green)';}
+}
+function getPwdScore(p){let s=0;if(p.length>=8)s++;if(p.length>=12)s++;if(/[A-Z]/.test(p))s++;if(/[0-9]/.test(p))s++;if(/[^A-Za-z0-9]/.test(p))s++;return s;}
+function checkPwdStrengthVal(p){return getPwdScore(p)>=2;}
+
+// ======== RECOVERY ========
+function generateRecoveryCode(){
+  const code=Math.floor(10000000+Math.random()*90000000).toString();
+  const formatted=code.slice(0,4)+'-'+code.slice(4);
+  state.recoveryCode=code;
+  saveState();
+  // Show to admin
+  toast('Code de récupération Admin généré. Notez-le !','success');
+  setTimeout(()=>{
+    if(confirm('IMPORTANT — Code de récupération Chef de Bureau :\n\n'+formatted+'\n\nNotez ce code dans un endroit sûr. Il permet de réinitialiser votre mot de passe.\n\nCliquez OK pour confirmer que vous l\'avez noté.')){}
+  },500);
+}
+
+function showForgotAdmin(){
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('forgotAdminScreen').classList.remove('hidden');
+  document.getElementById('forgotAdminAlert').innerHTML='';
+  document.getElementById('recoveryCode').value='';
+  document.getElementById('recoveryNewPwd').value='';
+  document.getElementById('recoveryNewPwd2').value='';
+}
+
+async function doRecovery(){
+  const code=document.getElementById('recoveryCode').value.replace(/-/g,'').trim();
+  const p1=document.getElementById('recoveryNewPwd').value;
+  const p2=document.getElementById('recoveryNewPwd2').value;
+  const al=document.getElementById('forgotAdminAlert');
+  al.innerHTML='';
+  if(!state.recoveryCode){al.innerHTML='<div class="alert ae2">Aucun code de récupération configuré. Contactez le support.</div>';return;}
+  if(code!==state.recoveryCode){al.innerHTML='<div class="alert ae2">Code de récupération incorrect.</div>';return;}
+  if(p1.length<8){al.innerHTML='<div class="alert ae2">Mot de passe trop court.</div>';return;}
+  if(p1!==p2){al.innerHTML='<div class="alert ae2">Les mots de passe ne correspondent pas.</div>';return;}
+  const hash=await sha256(p1);
+  if(!state.passwords)state.passwords={};
+  state.passwords['CHEF_BUREAU']=hash;
+  if(state.locked)state.locked['CHEF_BUREAU']=false;
+  if(state.attempts)state.attempts['CHEF_BUREAU']=0;
+  // Generate new recovery code
+  const newCode=Math.floor(10000000+Math.random()*90000000).toString();
+  state.recoveryCode=newCode;
+  saveState();
+  al.innerHTML='<div class="alert as2">✓ Mot de passe réinitialisé. Nouveau code de récupération: <strong>'+newCode.slice(0,4)+'-'+newCode.slice(4)+'</strong> — Notez-le !</div>';
+  setTimeout(()=>showLogin(),5000);
+}
+
+function showLogin(){
+  document.getElementById('forgotAdminScreen').classList.add('hidden');
+  document.getElementById('firstLoginScreen').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+
+// Admin reset user password
+function showResetPwdModal(){
+  const sel=document.getElementById('resetPwdUser');
+  const users=[...COMPTABLES,'CHEF_BUREAU'];
+  sel.innerHTML='<option value="">— Choisir —</option>'+users.filter(u=>u!==cu.name).map(u=>`<option value="${u}">${u==='CHEF_BUREAU'?'CHEF DE BUREAU':u}</option>`).join('');
+  document.getElementById('resetPwdModal').classList.remove('hidden');
+}
+
+function doResetUserPwd(){
+  const u=document.getElementById('resetPwdUser').value;
+  if(!u){toast('Sélectionnez un utilisateur','error');return;}
+  if(!state.passwords)state.passwords={};
+  delete state.passwords[u];
+  if(state.locked)state.locked[u]=false;
+  if(state.attempts)state.attempts[u]=0;
+  saveState();
+  document.getElementById('resetPwdModal').classList.add('hidden');
+  toast(`Mot de passe de ${u==='CHEF_BUREAU'?'CHEF DE BUREAU':u} réinitialisé. Il devra en créer un nouveau.`,'success');
+}
+
+function doLogout(expired=false){
+  stopSession();cu=null;editEntry=null;
+  document.getElementById('appScreen').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginAlert').innerHTML=expired?'<div class="alert aw3">Session expirée. Reconnectez-vous.</div>':'';
+  document.getElementById('nav-bureau-section').classList.add('hidden');
+  document.getElementById('lockBanner').classList.add('hidden');
+  document.getElementById('attemptCounter').textContent='';
+  document.getElementById('loginBtn').disabled=false;
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    if(!document.getElementById('loginScreen').classList.contains('hidden'))doLogin();
+    if(!document.getElementById('firstLoginScreen').classList.contains('hidden'))setFirstPassword();
+  }
+});
+
+// ======== MOBILE SIDEBAR ========
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('show');
+  document.getElementById('sidebarCloseBtn').style.display='';
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+  document.getElementById('sidebarCloseBtn').style.display='none';
+}
+
+// ======== NAVIGATION ========
+const PAGES=['dashboard','liste','recherche','rapports','cesp','donnees_cesp','config'];
+function showPage(p){
+  PAGES.forEach(x=>{document.getElementById('page-'+x)?.classList.add('hidden');document.getElementById('nav-'+x)?.classList.remove('active');});
+  document.getElementById('page-'+p)?.classList.remove('hidden');
+  document.getElementById('nav-'+p)?.classList.add('active');
+  if(p==='dashboard')renderDash();
+  if(p==='liste')renderListe();
+  if(p==='recherche')document.getElementById('searchResults').innerHTML='';
+  if(p==='rapports')renderRapports();
+  if(p==='donnees_cesp')renderDonneesCESP();
+  if(p==='cesp')renderCespManualGrid();
+  if(p==='config')renderConfig();
+}
+
+// ======== UTILS ========
+function allData(){return Object.entries(state.sheets).flatMap(([sh,rows])=>rows.map(r=>({...r,_sh:sh})));}
+function exploits(){return[...new Set(allData().map(r=>r.exploitation).filter(Boolean))].sort();}
+function fmtDate(d){if(!d)return'—';try{const dt=new Date(d);if(isNaN(dt.getTime()))return String(d);return dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});}catch(e){return String(d);}}
+function rb(r){if(!r||r==='????'||r.includes('Auto')||r.includes('trouvé'))return'<span class="badge br">????</span>';return`<span class="rt r${escHtml(r.replace(/\s/,''))}">${escHtml(r)}</span>`;}
+function etag(e){if(!e)return'<span class="edition-tag" style="background:var(--surface2);color:var(--text3)">—</span>';if(e==='NORMALE')return'<span class="edition-tag ed-n">NORMALE</span>';return'<span class="edition-tag ed-s">SPÉCIALE</span>';}
+function escJ(r){return JSON.stringify(r).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function toast(msg,type='info'){
+  const c=document.getElementById('toastContainer');
+  const t=document.createElement('div');t.className=`to t${type[0]}`;
+  const ic=type==='success'?'✓':type==='error'?'✗':'ℹ';
+  t.innerHTML=`<span style="color:${type==='success'?'var(--green)':type==='error'?'var(--red)':'var(--accent)'}">${ic}</span> ${escHtml(msg)}`;
+  c.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(20px)';t.style.transition='all .3s';setTimeout(()=>t.remove(),300);},4000);
+}
+function canEdit(r){return cu.role==='chef'||(r.createdBy===cu.name||r._sh===cu.name);}
+function canDel(r){return cu.role==='chef'||(r.createdBy===cu.name||r._sh===cu.name);}
+function ownerOf(r){if(r._sh)return r._sh;for(const[sh,rows]of Object.entries(state.sheets)){if(rows.find(x=>x.numero_st===r.numero_st))return sh;}return null;}
+function updateOdBar(){const el=document.getElementById('odStatusBar');if(!el)return;const ok=state.config?.gsConnected,url=state.config?.gsUrl||'';el.innerHTML=ok&&url?'<span class="ods odc"><span class="dot"></span>Google Sheets ✓</span>':url?'<span class="ods odp"><span class="dot"></span>Non connecté</span>':'<span class="ods odd"><span class="dot"></span>Non synchronisé</span>';}
+// ======== GOOGLE SHEETS SYNC ========
+async function gsCall(method,params){
+  const url=state.config?.gsUrl;if(!url)return null;
+  try{
+    if(method==='GET'){const r=await fetch(`${url}?${new URLSearchParams(params)}`,{redirect:'follow'});if(!r.ok)return null;const t=await r.text();try{return JSON.parse(t);}catch{return null;}}
+    else{const r=await fetch(url,{method:'POST',body:JSON.stringify(params),redirect:'follow'});if(!r.ok)return null;const t=await r.text();try{return JSON.parse(t);}catch{return null;}}
+  }catch(e){console.error('GS:',e);return null;}
+}
+function entryToRows(entry){
+  const b={DATE_DCSAC:entry.date_dcsac||'',NUMERO_ST:entry.numero_st||'',SIGLE:entry.sigle||'',PAQUET:entry.paquet||'',EDITION:entry.edition||'',EXPLOITATION:entry.exploitation||'',RESP_CESP:entry.resp_cesp||'????',DATE_CESP:entry.date_cesp||'',CREATED_BY:entry.createdBy||''};
+  const a=entry.actes||[];
+  if(!a.length)return[{...b,IM:'',MVT:'',CHAPITRE:''}];
+  return a.map(x=>({...b,IM:x.im||'',MVT:x.mvt||'',CHAPITRE:x.chapitre||''}));
+}
+function showSyncBadge(ok){
+  const el=document.getElementById('odStatusBar');if(!el)return;
+  el.innerHTML=ok?'<span class="ods odc"><span class="dot"></span>Google Sheets synchronisé ✓</span>':'<span class="ods odd"><span class="dot"></span>Erreur sync</span>';
+  setTimeout(updateOdBar,ok?3000:5000);
+}
+async function gsSync(fn){if(!state.config?.gsUrl||!state.config?.gsConnected)return;try{const r=await fn();showSyncBadge(r&&r.status==='ok');}catch(e){showSyncBadge(false);}}
+async function gsAppendEntry(sh,entry){const rows=entryToRows(entry);for(const row of rows)await gsCall('POST',{action:'append_row',sheet:sh,row});}
+async function gsUpdateEntry(sh,nst,entry){await gsCall('POST',{action:'delete_row',sheet:sh,numero_st:nst});await gsAppendEntry(sh,entry);}
+async function gsDeleteEntry(sh,nst){return await gsCall('POST',{action:'delete_row',sheet:sh,numero_st:nst});}
+
+// ======== DASHBOARD ========
+function renderDash(){
+  const dn=cu.name==='CHEF_BUREAU'?'CHEF DE BUREAU':cu.name;
+  document.getElementById('dashUserLabel').textContent=dn;updateOdBar();
+  const exps=exploits();
+  document.getElementById('dashExploitBtns').innerHTML=exps.map(e=>{const a=dashF.exploitation===e;return`<button onclick="toggleDashExploit('${escHtml(e)}')" style="padding:4px 12px;border-radius:99px;font-size:12px;font-family:var(--font-mono);cursor:pointer;border:1px solid var(--border);background:${a?'var(--accent2)':'var(--surface2)'};color:${a?'#fff':'var(--text2)'};min-height:32px">${escHtml(e)}</button>`;}).join('');
+  const isC=cu.role==='chef';
+  const cw=document.getElementById('cptWrap'),cb=document.getElementById('cptBtns');
+  if(isC){cw.style.display='';cb.innerHTML=['Tous',...COMPTABLES].map(c=>{const a=c==='Tous'?!dashF.comptable:dashF.comptable===c;return`<button onclick="toggleDashCpt('${c}')" style="padding:4px 10px;border-radius:99px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:${a?'var(--accent2)':'var(--surface2)'};color:${a?'#fff':'var(--text2)'};min-height:32px">${c}</button>`;}).join('');}
+  else{cw.style.display='none';}
+  const bn=document.getElementById('filterBtnN'),bs=document.getElementById('filterBtnS');
+  if(bn){bn.style.background=dashF.edition==='NORMALE'?'var(--ed-n)':'transparent';bn.style.color=dashF.edition==='NORMALE'?'#fff':'var(--ed-n)';}
+  if(bs){bs.style.background=dashF.edition==='SPECIALE'?'var(--ed-s)':'transparent';bs.style.color=dashF.edition==='SPECIALE'?'#fff':'var(--ed-s)';}
+  document.getElementById('btnClearDash').classList.toggle('hidden',!dashF.exploitation&&!dashF.edition&&!dashF.stat&&!dashF.comptable);
+  let base=isC?allData():(state.sheets[cu.name]||[]).map(r=>({...r,_sh:cu.name}));
+  if(dashF.comptable)base=base.filter(r=>r._sh===dashF.comptable||r.createdBy===dashF.comptable);
+  if(dashF.exploitation)base=base.filter(r=>r.exploitation===dashF.exploitation);
+  if(dashF.edition)base=base.filter(r=>r.edition===dashF.edition);
+  const asgn=base.filter(r=>r.resp_cesp&&r.resp_cesp!=='????').length;
+  const pend=base.filter(r=>!r.resp_cesp||r.resp_cesp==='????').length;
+  const pct=Math.round(asgn/Math.max(base.length,1)*100);
+  const lbl=escHtml((dashF.exploitation||'Toutes périodes')+(dashF.edition?' · '+dashF.edition:''));
+  document.getElementById('dashStats').innerHTML=`
+    <div class="stat-card sb ${dashF.stat==='all'?'af':''}" onclick="setDashStat('all')"><div class="stat-label">Total ST</div><div class="stat-value">${base.length}</div><div class="stat-sub">${lbl}</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir tout</div></div>
+    <div class="stat-card sg ${dashF.stat==='asgn'?'af':''}" onclick="setDashStat('asgn')"><div class="stat-label">Assignés</div><div class="stat-value">${asgn}</div><div class="stat-sub">${pct}% du total</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir assignés</div></div>
+    <div class="stat-card so ${dashF.stat==='pend'?'af':''}" onclick="setDashStat('pend')"><div class="stat-label">En attente</div><div class="stat-value">${pend}</div><div class="stat-sub">Sans responsable</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir</div></div>
+    <div class="stat-card sp ${dashF.stat==='mine'?'af':''}" onclick="setDashStat('mine')"><div class="stat-label">${isC?'Total':'Mes entrées'}</div><div class="stat-value">${base.length}</div><div class="stat-sub">${escHtml(dn)}</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir</div></div>`;
+  renderDashTable(base);
+}
+function toggleDashExploit(e){dashF.exploitation=dashF.exploitation===e?null:e;dashF.stat=null;renderDash();}
+function toggleDashEdition(e){dashF.edition=dashF.edition===e?null:e;dashF.stat=null;renderDash();}
+function toggleDashCpt(c){dashF.comptable=(c==='Tous'||dashF.comptable===c)?null:c;dashF.stat=null;renderDash();}
+function clearDashFilters(){dashF={exploitation:null,edition:null,stat:null,comptable:null};renderDash();}
+function setDashStat(t){dashF.stat=dashF.stat===t?null:t;renderDash();}
+function renderDashTable(base){
+  let data=[...base];
+  if(dashF.stat==='asgn')data=data.filter(r=>r.resp_cesp&&r.resp_cesp!=='????');
+  if(dashF.stat==='pend')data=data.filter(r=>!r.resp_cesp||r.resp_cesp==='????');
+  const titles={all:'Toutes les entrées',asgn:'Entrées assignées',pend:'En attente',mine:'Mes entrées'};
+  document.getElementById('dashTableTitle').textContent=dashF.stat?titles[dashF.stat]:'Activité récente';
+  document.getElementById('dashTableCount').textContent=`${data.length} entrée${data.length!==1?'s':''}`;
+  const rows=dashF.stat?data:data.slice().reverse().slice(0,20);const isC=cu.role==='chef';
+  if(!rows.length){document.getElementById('dashTable').innerHTML='<div class="es"><div class="et">Aucune entrée</div><div class="esb">Commencez par une nouvelle saisie</div></div>';return;}
+  document.getElementById('dashTable').innerHTML=`<table><thead><tr><th>Date</th><th>N° ST</th>${isC?'<th>Comptable</th>':''}<th>Édition</th><th>Sigle</th><th>Paquet</th><th>Actes</th><th>Exploitation</th><th>Resp.</th><th>Actions</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr onclick="showDetail(${escJ(r)})">
+    <td class="mono">${fmtDate(r.date_dcsac)}</td><td class="mono"><span class="hl">${escHtml(String(r.numero_st||'—'))}</span></td>
+    ${isC?`<td style="font-size:12px;font-weight:500;color:var(--text2)">${escHtml(r.createdBy||r._sh||'—')}</td>`:''}
+    <td>${etag(r.edition)}</td><td><span class="badge bb">${escHtml(r.sigle||'—')}</span></td><td class="mono">${escHtml(r.paquet||'—')}</td>
+    <td><span class="badge bg2">${(r.actes||[]).length} acte(s)</span></td><td><span class="eb">${escHtml(r.exploitation||'—')}</span></td><td>${rb(r.resp_cesp)}</td>
+    <td onclick="event.stopPropagation()" style="white-space:nowrap">
+      ${canEdit(r)?`<button class="be" onclick="openEdit(${escJ(r)})">✏</button>`:''}
+      ${canDel(r)?`<button class="bdel" onclick="askDel(${escJ(r)})" style="margin-left:4px">🗑</button>`:''}
+    </td>
+  </tr>`).join('')}</tbody></table>`;
+}
+// ======== LISTE ========
+function renderListe(){
+  const sheets=cu.role==='chef'?['ALL',...COMPTABLES]:[cu.name];
+  if(!sheets.includes(listeSheet))listeSheet=sheets[0];
+  document.getElementById('listeSheetTabs').innerHTML=sheets.map(s=>`<div class="tab ${listeSheet===s?'active':''}" onclick="setListeSheet('${s}')">${s==='ALL'?'Toutes':s}</div>`).join('');
+  const ad=allData();
+  const sigles=[...new Set(ad.map(r=>r.sigle))].filter(Boolean).sort();
+  const exps=[...new Set(ad.map(r=>r.exploitation))].filter(Boolean).sort();
+  const fs=document.getElementById('filterSigle'),fe=document.getElementById('filterExploitation');
+  const cs=fs.value,ce=fe.value;
+  fs.innerHTML='<option value="">Tous sigles</option>'+sigles.map(s=>`<option value="${escHtml(s)}"${s===cs?' selected':''}>${escHtml(s)}</option>`).join('');
+  fe.innerHTML='<option value="">Toutes exploitations</option>'+exps.map(e=>`<option value="${escHtml(e)}"${e===ce?' selected':''}>${escHtml(e)}</option>`).join('');
+  filterList();
+}
+function setListeSheet(s){listeSheet=s;listPage=1;renderListe();}
+function filterList(){
+  const q=(document.getElementById('listSearch')?.value||'').toLowerCase();
+  const ed=document.getElementById('filterEdition')?.value||'';
+  const ex=document.getElementById('filterExploitation')?.value||'';
+  const si=document.getElementById('filterSigle')?.value||'';
+  const re=document.getElementById('filterResp')?.value||'';
+  let data=listeSheet==='ALL'?allData():(state.sheets[listeSheet]||[]).map(r=>({...r,_sh:listeSheet}));
+  if(q)data=data.filter(r=>String(r.numero_st||'').includes(q)||String(r.sigle||'').toLowerCase().includes(q)||(r.actes||[]).some(a=>String(a.im).includes(q)));
+  if(ed)data=data.filter(r=>r.edition===ed);if(ex)data=data.filter(r=>r.exploitation===ex);
+  if(si)data=data.filter(r=>String(r.sigle)===si);if(re)data=data.filter(r=>String(r.resp_cesp||'')===re);
+  listeRows=data;document.getElementById('listCount').textContent=`${data.length} entrée${data.length!==1?'s':''}`;renderListTable();
+}
+function renderListTable(){
+  const total=listeRows.length,pages=Math.max(1,Math.ceil(total/PS));
+  if(listPage>pages)listPage=pages;
+  const rows=listeRows.slice((listPage-1)*PS,listPage*PS);const isC=cu.role==='chef';
+  if(!rows.length){document.getElementById('listTableBody').innerHTML='<div class="es"><div class="et">Aucune entrée</div></div>';document.getElementById('listPager').innerHTML='';return;}
+  document.getElementById('listTableBody').innerHTML=`<table><thead><tr><th>Date</th><th>N° ST</th>${isC?'<th>Comptable</th>':''}<th>Édition</th><th>Sigle</th><th>Paquet</th><th>Actes</th><th>Exploitation</th><th>Resp.</th><th>Date Resp.</th><th>Actions</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr onclick="showDetail(${escJ(r)})">
+    <td class="mono">${fmtDate(r.date_dcsac)}</td><td class="mono"><span class="hl">${escHtml(String(r.numero_st||'—'))}</span></td>
+    ${isC?`<td style="font-size:12px;font-weight:500;color:var(--text2)">${escHtml(r.createdBy||r._sh||'—')}</td>`:''}
+    <td>${etag(r.edition)}</td><td><span class="badge bb">${escHtml(r.sigle||'—')}</span></td><td class="mono">${escHtml(r.paquet||'—')}</td>
+    <td style="max-width:150px">${(r.actes||[]).slice(0,3).map(a=>`<span style="display:inline-block;margin:1px;font-family:var(--font-mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:2px;padding:1px 4px">${escHtml(a.im)}/<b>${escHtml(a.mvt)}</b></span>`).join('')}${(r.actes||[]).length>3?`<span style="font-size:10px;color:var(--text3)"> +${(r.actes||[]).length-3}</span>`:''}</td>
+    <td><span class="eb">${escHtml(r.exploitation||'—')}</span></td><td>${rb(r.resp_cesp)}</td><td class="mono tf">${r.date_cesp?fmtDate(r.date_cesp):'—'}</td>
+    <td onclick="event.stopPropagation()" style="white-space:nowrap">
+      ${canEdit(r)?`<button class="be" onclick="openEdit(${escJ(r)})">✏</button>`:''}
+      ${canDel(r)?`<button class="bdel" onclick="askDel(${escJ(r)})" style="margin-left:4px">🗑</button>`:''}
+    </td>
+  </tr>`).join('')}</tbody></table>`;
+  let ph=`<span>${(listPage-1)*PS+1}–${Math.min(listPage*PS,total)} sur ${total}</span><div class="pager-btns">`;
+  ph+=`<button class="pb"${listPage<=1?' disabled':''} onclick="setLP(${listPage-1})">‹</button>`;
+  const p2=Math.ceil(total/PS);
+  for(let i=1;i<=p2;i++){if(p2<=7||Math.abs(i-listPage)<=1||i===1||i===p2)ph+=`<button class="pb${i===listPage?' act':''}" onclick="setLP(${i})">${i}</button>`;else if(Math.abs(i-listPage)===2)ph+=`<span style="color:var(--text3);padding:0 4px">…</span>`;}
+  ph+=`<button class="pb"${listPage>=p2?' disabled':''} onclick="setLP(${listPage+1})">›</button></div>`;
+  document.getElementById('listPager').innerHTML=ph;
+}
+function setLP(p){listPage=p;renderListTable();}
+// ======== DETAIL ========
+function showDetail(r){
+  if(typeof r==='string')r=JSON.parse(r);curDetail=r;const isC=cu.role==='chef';
+  document.getElementById('detailTitle').innerHTML=`ST N° <span style="color:var(--accent)">${escHtml(String(r.numero_st||'—'))}</span> ${etag(r.edition)}`;
+  const actes=r.actes||[];
+  document.getElementById('detailBody').innerHTML=`<div>
+    ${dr('Date DCSAC',fmtDate(r.date_dcsac))}${dr('Numéro ST',`<span class="hl mono">${escHtml(String(r.numero_st||'—'))}</span>`)}
+    ${dr('Édition',etag(r.edition))}${dr('Exploitation',`<span class="eb">${escHtml(r.exploitation||'—')}</span>`)}
+    ${dr('Sigle',`<span class="badge bb">${escHtml(r.sigle||'—')}</span>`)}${dr('Paquet',`<span class="mono">${escHtml(r.paquet||'—')}</span>`)}
+    ${dr('Saisi par',`<b>${escHtml(r.createdBy||r._sh||'—')}</b>`)}
+    ${dr('Responsable',rb(r.resp_cesp))}${dr('Date Resp.',r.date_cesp?fmtDate(r.date_cesp):'—')}
+  </div>
+  <div class="dst">Actes (${actes.length})</div>
+  <div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+    <div style="display:grid;grid-template-columns:26px 1fr 80px 1fr;background:var(--surface2);border-bottom:1px solid var(--border)">
+      <div style="padding:5px 8px;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text3)">#</div>
+      <div style="padding:5px 8px;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text3)">IM</div>
+      <div style="padding:5px 8px;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text3)">MVT</div>
+      <div style="padding:5px 8px;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text3)">Chapitre</div>
+    </div>
+    ${actes.map((a,i)=>`<div style="display:grid;grid-template-columns:26px 1fr 80px 1fr;border-bottom:1px solid var(--border2);${i%2?'background:rgba(255,255,255,.02)':''}">
+      <div style="padding:6px 8px;font-size:11px;color:var(--text3);font-family:var(--font-mono);text-align:center">${i+1}</div>
+      <div style="padding:6px 8px;font-size:12px;font-family:var(--font-mono)">${escHtml(a.im)}</div>
+      <div style="padding:6px 8px"><span class="badge bg2">${escHtml(a.mvt)}</span></div>
+      <div style="padding:6px 8px;font-size:12px;font-family:var(--font-mono);color:var(--text2)">${escHtml(a.chapitre||'—')}</div>
+    </div>`).join('')}
+  </div>`;
+  const ow=ownerOf(r);
+  let f='<button class="btn bs" onclick="closeDetail()">Fermer</button>';
+  if(canEdit(r))f+=`<button class="be" onclick="editFromDetail()">✏ Modifier</button>`;
+  else f+=`<span style="font-size:11px;color:var(--orange)">Modifier : contacter ${escHtml(ow||'le propriétaire')} ou Chef de Bureau</span>`;
+  if(canDel(r))f+=`<button class="btn bd" onclick="closeDetail();askDel(curDetail)">🗑 Supprimer</button>`;
+  else f+=`<span style="font-size:11px;color:var(--orange);margin-left:8px">Supprimer : contacter ${escHtml(ow||'le propriétaire')} ou Chef de Bureau</span>`;
+  document.getElementById('detailFooter').innerHTML=f;
+  document.getElementById('detailModal').classList.remove('hidden');
+}
+function dr(l,v){return`<div class="dr"><span class="dl">${l}</span><span class="dv">${v}</span></div>`;}
+function closeDetail(){document.getElementById('detailModal').classList.add('hidden');curDetail=null;}
+function editFromDetail(){if(curDetail){const r=curDetail;closeDetail();openEdit(r);}}
+// ======== DELETE ========
+function askDel(r){
+  if(typeof r==='string')r=JSON.parse(r);const ow=ownerOf(r);
+  if(!canDel(r)){toast(`Seul ${ow||'le propriétaire'} ou le Chef de Bureau peut supprimer.`,'error');return;}
+  document.getElementById('confirmMsg').innerHTML=`ST N° <strong>${escHtml(String(r.numero_st||'—'))}</strong> — ${escHtml(r.sigle||'—')} / Paquet ${escHtml(r.paquet||'—')} — <strong>${(r.actes||[]).length} acte(s)</strong>.`;
+  confirmCb=()=>doDel(r);
+  document.getElementById('confirmOkBtn').onclick=()=>{confirmCb&&confirmCb();closeConfirm();};
+  document.getElementById('confirmModal').classList.remove('hidden');
+}
+function doDel(r){
+  const sh=ownerOf(r);if(!sh){toast('Entrée introuvable','error');return;}
+  const nst=r.numero_st;
+  state.sheets[sh]=state.sheets[sh].filter(x=>x.numero_st!==nst);
+  saveState();
+  gsSync(()=>gsDeleteEntry(sh,nst));
+  toast(`ST ${nst||'—'} supprimé`,'success');
+  const ap=PAGES.find(p=>!document.getElementById('page-'+p)?.classList.contains('hidden'));
+  if(ap==='dashboard')renderDash();if(ap==='liste')filterList();if(ap==='recherche')doSearch();
+}
+function closeConfirm(){document.getElementById('confirmModal').classList.add('hidden');confirmCb=null;}
+// ======== SAISIE ========
+function getPeriodes(){const m=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];const p=[];const n=new Date();for(let o=-12;o<=6;o++){const d=new Date(n.getFullYear(),n.getMonth()+o,1);p.push(`${m[d.getMonth()]} ${d.getFullYear()}`);}return p;}
+function openSaisieNew(){
+  editEntry=null;acteRows=[{im:'',mvt:'',chapitre:''}];
+  document.getElementById('saisieModalTitle').textContent='Nouvelle saisie';
+  document.getElementById('saisieSubmitLabel').textContent='Enregistrer';
+  document.getElementById('saisieAlert').innerHTML='';
+  ['fDateDCSAC','fNumeroST','fSigle','fPaquet'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.className='fi';}});
+  document.getElementById('fEdition').value='';
+  document.getElementById('fRespCESP').value='Auto';document.getElementById('fDateCESP').value='Auto';
+  ['stHint','sigleHint','paquetHint','exploitHint'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
+  const el=document.getElementById('fExploitation');
+  el.innerHTML='<option value="">— Choisir —</option>'+getPeriodes().map(p=>`<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('');
+  el.value=state.config?.exploitation||'';
+  updateReqFields();renderActesRows();
+  document.getElementById('saisieModal').classList.remove('hidden');
+}
+function updateReqFields(){
+  const isC=cu&&cu.role==='chef';
+  document.getElementById('fSTLabel').innerHTML=isC?'Numéro ST <span style="color:var(--text3);font-size:10px">(optionnel)</span>':'Numéro ST <span class="req">*</span>';
+  document.getElementById('sigleReqMark').style.display=isC?'none':'';
+  document.getElementById('sigleHint').textContent=isC?'3 chiffres (optionnel)':'3 chiffres';
+  document.getElementById('paquetReqMark').style.display=isC?'none':'';
+  document.getElementById('paquetHint').textContent=isC?'Max 3 car. (optionnel)':'Max 3 car.';
+}
+function openEdit(r){
+  if(typeof r==='string')r=JSON.parse(r);const ow=ownerOf(r);
+  if(!canEdit(r)){toast(`Modification impossible. Seul ${ow||'le propriétaire'} ou le Chef de Bureau peut modifier.`,'error');return;}
+  editEntry={sheetName:ow,numero_st:r.numero_st};
+  acteRows=(r.actes||[{im:'',mvt:'',chapitre:''}]).map(a=>({...a}));
+  document.getElementById('saisieModalTitle').innerHTML=`Modifier ST N° <span style="color:var(--accent)">${escHtml(String(r.numero_st||'—'))}</span>`;
+  document.getElementById('saisieSubmitLabel').textContent='Enregistrer modifications';
+  document.getElementById('saisieAlert').innerHTML='';
+  document.getElementById('fDateDCSAC').value=r.date_dcsac||'';
+  document.getElementById('fNumeroST').value=r.numero_st||'';document.getElementById('fNumeroST').className='fi ok';
+  document.getElementById('fEdition').value=r.edition||'';
+  document.getElementById('fSigle').value=r.sigle||'';document.getElementById('fSigle').className='fi ok';
+  document.getElementById('fPaquet').value=r.paquet||'';document.getElementById('fPaquet').className='fi ok';
+  document.getElementById('fRespCESP').value=r.resp_cesp||'????';
+  document.getElementById('fDateCESP').value=r.date_cesp?fmtDate(r.date_cesp):'Non trouvé';
+  const el=document.getElementById('fExploitation');
+  el.innerHTML='<option value="">—</option>'+getPeriodes().map(p=>`<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('');
+  el.value=r.exploitation||'';
+  ['stHint','sigleHint','paquetHint','exploitHint'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
+  updateReqFields();renderActesRows();
+  document.getElementById('saisieModal').classList.remove('hidden');
+}
+function closeSaisieModal(){document.getElementById('saisieModal').classList.add('hidden');editEntry=null;}
+function onEditionChange(){const e=document.getElementById('fEdition').value,h=document.getElementById('exploitHint');if(e){h.textContent='Type: '+e;h.className='hint ok';}else h.textContent='';validateSP();}
+function validateST(){
+  const val=document.getElementById('fNumeroST').value,h=document.getElementById('stHint'),inp=document.getElementById('fNumeroST');
+  if(!val){h.textContent='';inp.className='fi';return;}
+  const num=parseInt(val);
+  const ex=allData().find(r=>r.numero_st===num&&(!editEntry||r.numero_st!==editEntry.numero_st));
+  if(ex){h.textContent=`⚠ ST ${num} déjà utilisé`;h.className='hint err';inp.className='fi err';}
+  else{h.textContent='✓ Disponible';h.className='hint ok';inp.className='fi ok';}
+  lookupCESP(num);
+}
+function lookupCESP(n){for(const row of state.cesp){for(const r of RESP){if(row[r]===n){document.getElementById('fRespCESP').value=r;document.getElementById('fDateCESP').value=fmtDate(row.date_cesp);return;}}}document.getElementById('fRespCESP').value='????';document.getElementById('fDateCESP').value='Non trouvé';}
+function validateSP(){
+  const si=document.getElementById('fSigle').value.trim();
+  const pa=document.getElementById('fPaquet').value.trim();
+  const ex=document.getElementById('fExploitation').value;
+  const ed=document.getElementById('fEdition').value;
+  const isC=cu&&cu.role==='chef';
+  const sh=document.getElementById('sigleHint'),sI=document.getElementById('fSigle');
+  const ph=document.getElementById('paquetHint'),pI=document.getElementById('fPaquet');
+  if(!si){sh.textContent=isC?'3 chiffres (optionnel)':'3 chiffres';sh.className='hint';sI.className='fi';}
+  else if(!/^\d{3}$/.test(si)){sh.textContent='⚠ 3 chiffres uniquement';sh.className='hint err';sI.className='fi err';}
+  else{sh.textContent='✓';sh.className='hint ok';sI.className='fi ok';}
+  if(!pa){ph.textContent=isC?'Max 3 car. (optionnel)':'Max 3 car.';ph.className='hint';pI.className='fi';}
+  else if(!/^[A-Za-z0-9]{1,3}$/.test(pa)){ph.textContent='⚠ Max 3 car.';ph.className='hint err';pI.className='fi err';}
+  else if(ex&&si&&/^\d{3}$/.test(si)&&ed){
+    const dup=allData().find(r=>r.sigle===si&&r.paquet&&r.paquet.toUpperCase()===pa.toUpperCase()&&r.exploitation===ex&&r.edition===ed&&(!editEntry||r.numero_st!==editEntry.numero_st));
+    if(dup){ph.textContent=`⚠ Déjà utilisé pour ${ed} ${ex}`;ph.className='hint err';pI.className='fi err';}
+    else{ph.textContent='✓ Disponible';ph.className='hint ok';pI.className='fi ok';}
+  }else{ph.textContent='✓';ph.className='hint ok';pI.className='fi ok';}
+}
+// ======== ACTES ========
+function getMvtO(s=''){return'<option value="">— MVT —</option>'+MVT.map(m=>`<option value="${m}"${m===s?' selected':''}>${m}</option>`).join('');}
+function getChapO(s=''){return'<option value="">—</option>'+state.chapitres.map(c=>`<option value="${c}"${c===s?' selected':''}>${c}</option>`).join('')+'<option value="__m__">✏ Manuel...</option>';}
+function renderActesRows(){
+  document.getElementById('actesRows').innerHTML=acteRows.map((_,i)=>`
+    <div class="ar2"><div class="an">${i+1}</div>
+    <div class="ac"><input type="text" maxlength="8" placeholder="0245255" value="${escHtml(acteRows[i].im||'')}" style="font-family:var(--font-mono)" id="aIM_${i}" oninput="aIMch(${i},this.value)" /></div>
+    <div class="ac"><select id="aMVT_${i}" onchange="acteRows[${i}].mvt=this.value">${getMvtO(acteRows[i].mvt)}</select></div>
+    <div class="ac" style="display:flex;flex-direction:column;gap:2px">
+      <select id="aCH_${i}" onchange="chapSel(${i},this.value)">${getChapO(acteRows[i].chapitre)}</select>
+      <input type="text" id="aCHm_${i}" class="hidden" maxlength="10" placeholder="Saisir..." style="font-family:var(--font-mono);background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--text);font-size:12px;padding:5px 6px" oninput="acteRows[${i}].chapitre=this.value" />
+    </div>
+    <div class="adel"><button class="adb" onclick="remActeRow(${i})">✕</button></div>
+  </div>`).join('');
+  document.getElementById('actesCount').textContent=`${acteRows.length} / 10 actes`;
+  document.getElementById('actesWarn').classList.toggle('hidden',acteRows.length<10);
+}
+function aIMch(i,v){acteRows[i].im=v;if(v.length>=7&&i+1<acteRows.length&&acteRows[i].chapitre&&!acteRows[i+1].chapitre){const sel=document.getElementById(`aCH_${i+1}`);if(sel){sel.value=acteRows[i].chapitre;acteRows[i+1].chapitre=acteRows[i].chapitre;}}}
+function chapSel(i,v){if(v==='__m__'){document.getElementById(`aCHm_${i}`).classList.remove('hidden');acteRows[i].chapitre='';}else{document.getElementById(`aCHm_${i}`).classList.add('hidden');acteRows[i].chapitre=v;if(v&&i+1<acteRows.length&&!acteRows[i+1].chapitre){const sel=document.getElementById(`aCH_${i+1}`);if(sel){sel.value=v;acteRows[i+1].chapitre=v;}}}}
+function addActeRow(){if(acteRows.length>=10){toast('Maximum 10 actes','error');return;}const lc=acteRows.length>0?acteRows[acteRows.length-1].chapitre:'';acteRows.push({im:'',mvt:'',chapitre:lc||''});renderActesRows();setTimeout(()=>document.getElementById(`aIM_${acteRows.length-1}`)?.focus(),50);}
+function remActeRow(i){acteRows.splice(i,1);renderActesRows();}
+async function submitSaisie(){
+  const al=document.getElementById('saisieAlert');
+  const dd=document.getElementById('fDateDCSAC').value;
+  const sv=document.getElementById('fNumeroST').value;
+  const nst=sv?parseInt(sv):null;
+  const si=document.getElementById('fSigle').value.trim();
+  const pa=document.getElementById('fPaquet').value.trim();
+  const ed=document.getElementById('fEdition').value;
+  const ex=document.getElementById('fExploitation').value;
+  const isC=cu.role==='chef';const errs=[];
+  if(!dd)errs.push('Date DCSAC requise');
+  if(!isC&&(!nst||isNaN(nst)))errs.push('Numéro ST invalide');
+  if(nst&&allData().find(r=>r.numero_st===nst&&(!editEntry||r.numero_st!==editEntry.numero_st)))errs.push(`ST ${nst} déjà utilisé`);
+  if(!ed)errs.push("Type d'édition requis");if(!ex)errs.push('Exploitation requise');
+  if(!isC&&!/^\d{3}$/.test(si))errs.push('Sigle: 3 chiffres');
+  if(si&&!/^\d{3}$/.test(si))errs.push('Sigle: 3 chiffres');
+  if(!isC&&!/^[A-Za-z0-9]{1,3}$/.test(pa))errs.push('Paquet: max 3 car.');
+  if(pa&&!/^[A-Za-z0-9]{1,3}$/.test(pa))errs.push('Paquet: max 3 car.');
+  if(acteRows.length===0)errs.push('Au moins un acte requis');
+  acteRows.forEach((a,i)=>{if(!a.im||!(/^\d{7}$/.test(a.im)||/^[A-Za-z]\d{6}$/.test(a.im)))errs.push(`Acte ${i+1}: IM invalide (7 car.)`);if(!a.mvt)errs.push(`Acte ${i+1}: MVT requis`);});
+  if(!editEntry&&si&&pa&&ex&&ed){const dup=allData().find(r=>r.sigle===si&&r.paquet&&r.paquet.toUpperCase()===pa.toUpperCase()&&r.exploitation===ex&&r.edition===ed);if(dup)errs.push(`Sigle ${si}/Paquet ${pa} déjà utilisé pour ${ed} ${ex}`);}
+  if(errs.length){al.innerHTML=`<div class="alert ae2">${errs.map(e=>`• ${escHtml(e)}`).join('<br>')}</div>`;return;}
+  const resp=document.getElementById('fRespCESP').value||'????';
+  const dc=(resp!=='????'&&resp!=='Auto'&&!resp.includes('trouvé'))?(document.getElementById('fDateCESP').value||''):'';
+  const sh=editEntry?editEntry.sheetName:(cu.sheet||'VICKY');
+  const entry={date_dcsac:dd,numero_st:nst,sigle:si||'',paquet:pa?pa.toUpperCase():'',edition:ed,exploitation:ex,resp_cesp:resp==='Auto'||resp.includes('trouvé')?'????':resp,date_cesp:dc,createdBy:editEntry?(curDetail?.createdBy||cu.name):cu.name,actes:acteRows.map(a=>({im:a.im.trim(),mvt:a.mvt,chapitre:a.chapitre||''}))};
+  if(!state.sheets[sh])state.sheets[sh]=[];
+  if(editEntry){const d=state.sheets[editEntry.sheetName];const idx=d.findIndex(r=>r.numero_st===editEntry.numero_st);if(idx>=0)d[idx]=entry;toast(`ST ${nst||'—'} mis à jour`,'success');gsSync(()=>gsUpdateEntry(editEntry.sheetName,editEntry.numero_st,entry));}
+  else{state.sheets[sh].push(entry);toast(`ST ${nst||'—'} enregistré`,'success');gsSync(()=>gsAppendEntry(sh,entry));}
+  saveState();closeSaisieModal();
+  const ap=PAGES.find(p=>!document.getElementById('page-'+p)?.classList.contains('hidden'));
+  if(ap==='dashboard')renderDash();if(ap==='liste')filterList();
+}
+// ======== RECHERCHE ========
+function doSearch(){
+  const q=document.getElementById('searchInput').value.trim();const res=document.getElementById('searchResults');
+  if(!q){res.innerHTML='';return;}
+  const found=allData().filter(r=>String(r.numero_st||'').includes(q)||String(r.sigle||'').toLowerCase().includes(q.toLowerCase())||(r.actes||[]).some(a=>String(a.im).includes(q)));
+  if(!found.length){res.innerHTML=`<div class="alert ai2">Aucun résultat pour "${escHtml(q)}"</div>`;return;}
+  const isC=cu.role==='chef';
+  res.innerHTML=`<div class="table-wrap"><div class="table-toolbar"><span class="tsm tm">${found.length} résultat(s)</span></div><div class="table-scroll">
+    <table><thead><tr><th>N° ST</th>${isC?'<th>Comptable</th>':''}<th>Édition</th><th>Sigle</th><th>Paquet</th><th>Actes</th><th>Exploitation</th><th>Resp.</th><th>Actions</th></tr></thead>
+    <tbody>${found.map(r=>`<tr onclick="showDetail(${escJ(r)})">
+      <td class="mono"><span class="hl">${escHtml(String(r.numero_st||'—'))}</span></td>${isC?`<td style="font-size:12px;font-weight:500;color:var(--text2)">${escHtml(r.createdBy||r._sh||'—')}</td>`:''}
+      <td>${etag(r.edition)}</td><td><span class="badge bb">${escHtml(r.sigle||'—')}</span></td><td class="mono">${escHtml(r.paquet||'—')}</td>
+      <td>${(r.actes||[]).map(a=>`<span style="display:inline-block;margin:1px;font-family:var(--font-mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:2px;padding:1px 4px">${escHtml(a.im)}/<b>${escHtml(a.mvt)}</b></span>`).join('')}</td>
+      <td><span class="eb">${escHtml(r.exploitation||'—')}</span></td><td>${rb(r.resp_cesp)}</td>
+      <td onclick="event.stopPropagation()" style="white-space:nowrap">${canEdit(r)?`<button class="be" onclick="openEdit(${escJ(r)})">✏</button>`:''}${canDel(r)?`<button class="bdel" onclick="askDel(${escJ(r)})" style="margin-left:4px">🗑</button>`:''}</td>
+    </tr>`).join('')}</tbody></table></div></div>`;
+}
+// ======== RAPPORTS ========
+function renderRapports(){document.getElementById('rp1User').innerHTML=(cu.role==='chef'?COMPTABLES:[cu.name]).map(c=>`<option value="${c}">${c}</option>`).join('');}
+function updateRpPeriodes(px){const ed=document.getElementById(`${px}Edition`).value,el=document.getElementById(`${px}Periode`);if(!ed){el.innerHTML='<option value="">—</option>';return;}const ps=[...new Set(allData().filter(r=>r.edition===ed).map(r=>r.exploitation))].sort();el.innerHTML='<option value="">—</option>'+ps.map(p=>`<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('');}
+function updateRp2Periodes(){updateRpPeriodes('rp2');updateRapport2Preview();}
+function updateRapport2Preview(){const ed=document.getElementById('rp2Edition').value,pe=document.getElementById('rp2Periode').value,el=document.getElementById('rp2Preview');if(!ed||!pe){el.innerHTML='';return;}const rows=COMPTABLES.map(c=>{const d=(state.sheets[c]||[]).filter(r=>r.edition===ed&&r.exploitation===pe);return{c,nb:d.length,na:d.reduce((s,r)=>s+(r.actes||[]).length,0)};});el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Comptable</th><th>Nb ST</th><th>Nb Actes</th></tr></thead><tbody>${rows.map(r=>`<tr><td style="font-weight:500">${r.c}</td><td class="mono">${r.nb}</td><td class="mono">${r.na}</td></tr>`).join('')}<tr style="background:var(--surface2);font-weight:600"><td>TOTAL</td><td class="mono">${rows.reduce((s,r)=>s+r.nb,0)}</td><td class="mono">${rows.reduce((s,r)=>s+r.na,0)}</td></tr></tbody></table></div>`;}
+function exportRapport1(){const u=document.getElementById('rp1User').value,ed=document.getElementById('rp1Edition').value,pe=document.getElementById('rp1Periode').value;if(!ed||!pe){toast("Sélectionnez l'édition et la période",'error');return;}const data=(state.sheets[u]||[]).filter(r=>r.edition===ed&&r.exploitation===pe);if(!data.length){toast('Aucune donnée','error');return;}const rows=[['Sigle','Paquet','IM','Mouvement','Chapitre','Observations']];data.forEach(st=>(st.actes||[]).forEach(a=>rows.push([st.sigle||'',st.paquet||'',a.im,a.mvt,a.chapitre||'',''])));const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:8},{wch:8},{wch:10},{wch:10},{wch:12},{wch:20}];XLSX.utils.book_append_sheet(wb,ws,'Rapport');XLSX.writeFile(wb,`Impression_Pièce_${u}_${ed}_${pe.replace(/ /g,'_')}.xlsx`);toast('Rapport 1 exporté','success');}
+function exportRapport2(){const ed=document.getElementById('rp2Edition').value,pe=document.getElementById('rp2Periode').value;if(!ed||!pe){toast("Sélectionnez l'édition et la période",'error');return;}const rows=[['Nom du Comptable',"Nombre d'Actes traités"]];COMPTABLES.forEach(c=>{const d=(state.sheets[c]||[]).filter(r=>r.edition===ed&&r.exploitation===pe);rows.push([c,d.reduce((s,r)=>s+(r.actes||[]).length,0)]);});const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:20},{wch:22}];XLSX.utils.book_append_sheet(wb,ws,'Rapport');XLSX.writeFile(wb,`Nb_Actes_${ed}_${pe.replace(/ /g,'_')}.xlsx`);toast('Rapport 2 exporté','success');}
+// ======== CESP ========
+function handleCESPFile(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});let hr=-1;for(let i=0;i<Math.min(json.length,5);i++){if(json[i].some(c=>typeof c==='string'&&c.toUpperCase().includes('DATE'))){hr=i;break;}}if(hr<0){document.getElementById('cespImportStatus').innerHTML='<div class="alert ae2">Structure non reconnue.</div>';return;}const hdrs=json[hr].map(h=>String(h||'').trim().toUpperCase());const di=hdrs.findIndex(h=>h.includes('DATE'));const rc=RESP.map(r=>({name:r,idx:hdrs.findIndex(h=>h===r)}));const parsed=[];for(let i=hr+1;i<json.length;i++){const row=json[i];if(!row[di])continue;const obj={date_cesp:row[di]};rc.forEach(r=>{if(r.idx>=0){const v=parseInt(row[r.idx]);obj[r.name]=isNaN(v)?null:v;}else obj[r.name]=null;});parsed.push(obj);}pendingCESP=parsed;document.getElementById('cespImportStatus').innerHTML=`<div class="alert as2">✓ ${parsed.length} lignes détectées.</div>`;const prev=parsed.slice(0,8);document.getElementById('cespImportPreview').innerHTML=`<div class="table-wrap" style="max-height:200px;overflow-y:auto"><div class="table-scroll"><table><thead><tr><th>Date</th>${RESP.map(r=>`<th>${r}</th>`).join('')}</tr></thead><tbody>${prev.map(r=>`<tr><td class="mono" style="color:var(--accent)">${escHtml(String(r.date_cesp))}</td>${RESP.map(rs=>`<td class="mono">${r[rs]||'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${parsed.length>8?`<div style="padding:8px 12px;font-size:11px;color:var(--text3)">...et ${parsed.length-8} lignes</div>`:''}</div>`;document.getElementById('cespImportActions').style.display='';}catch(err){document.getElementById('cespImportStatus').innerHTML=`<div class="alert ae2">Erreur: ${escHtml(err.message)}</div>`;}};reader.readAsArrayBuffer(file);}
+function confirmCESPImport(){if(!pendingCESP)return;const imp=pendingCESP;state.cesp.push(...imp);let upd=0;for(const[,rows]of Object.entries(state.sheets)){for(const e of rows){for(const row of imp){for(const r of RESP){if(row[r]===e.numero_st){e.resp_cesp=r;e.date_cesp=row.date_cesp;upd++;}}}}}saveState();gsSync(()=>gsCall('POST',{action:'append_cesp',rows:imp.map(row=>({DATE_CESP:row.date_cesp||'',...Object.fromEntries(RESP.map(r=>[r,row[r]||'']))}))}) );toast(`Import: ${imp.length} lignes, ${upd} fiches mises à jour`,'success');pendingCESP=null;document.getElementById('cespImportActions').style.display='none';document.getElementById('cespImportStatus').innerHTML='<div class="alert as2">✓ Import confirmé.</div>';document.getElementById('cespImportPreview').innerHTML='';document.getElementById('cespFileInput').value='';}
+function cancelCESPImport(){pendingCESP=null;document.getElementById('cespImportStatus').innerHTML='';document.getElementById('cespImportPreview').innerHTML='';document.getElementById('cespImportActions').style.display='none';document.getElementById('cespFileInput').value='';}
+function renderCespManualGrid(){document.getElementById('cespManualGrid').innerHTML=RESP.map(r=>`<div class="fg"><label class="fl">${rb(r)} ${r}</label><textarea id="cM_${r}" class="fi" rows="3" placeholder="Un N° ST par ligne" style="resize:vertical;font-family:var(--font-mono);font-size:13px;min-height:80px"></textarea></div>`).join('');}
+function submitCESPManual(){const dt=document.getElementById('cespManualDate').value,al=document.getElementById('cespManualAlert');if(!dt){al.innerHTML='<div class="alert ae2">Date requise</div>';return;}const ent={};for(const r of RESP){const raw=document.getElementById(`cM_${r}`)?.value||'';ent[r]=raw.split('\n').map(v=>parseInt(v.trim())).filter(v=>!isNaN(v));}const tot=Object.values(ent).reduce((s,v)=>s+v.length,0);if(!tot){al.innerHTML='<div class="alert ae2">Au moins un N° ST</div>';return;}const mx=Math.max(...Object.values(ent).map(v=>v.length),1);const newRows=[];for(let i=0;i<mx;i++){const row={date_cesp:dt};for(const r of RESP)row[r]=ent[r][i]||null;state.cesp.push(row);newRows.push(row);}let upd=0;for(const[,rows]of Object.entries(state.sheets)){for(const e of rows){for(const r of RESP){if(ent[r].includes(e.numero_st)){e.resp_cesp=r;e.date_cesp=dt;upd++;}}}}saveState();gsSync(()=>gsCall('POST',{action:'append_cesp',rows:newRows.map(row=>({DATE_CESP:row.date_cesp||'',...Object.fromEntries(RESP.map(r=>[r,row[r]||'']))}))}));al.innerHTML=`<div class="alert as2">✓ ${tot} ST enregistrés, ${upd} fiches mises à jour.</div>`;toast(`${tot} ST assignés`,'success');resetCespManual();}
+function resetCespManual(){document.getElementById('cespManualDate').value='';RESP.forEach(r=>{const el=document.getElementById(`cM_${r}`);if(el)el.value='';}); }
+function renderDonneesCESP(){cespFilt=buildCespFlat();document.getElementById('cespCount').textContent=`${cespFilt.length} entrées`;renderCespTable();}
+function buildCespFlat(){const rows=[];for(const row of state.cesp){for(const r of RESP){if(row[r]!=null)rows.push({date_cesp:row.date_cesp,responsable:r,numero_st:row[r]});}}return rows;}
+function filterCESP(){const q=(document.getElementById('cespSearch').value||'').toLowerCase();cespFilt=buildCespFlat().filter(r=>!q||String(r.numero_st).includes(q)||r.responsable.toLowerCase().includes(q));document.getElementById('cespCount').textContent=`${cespFilt.length} entrées`;cespPage=1;renderCespTable();}
+function renderCespTable(){const tot=cespFilt.length,pages=Math.max(1,Math.ceil(tot/PS));if(cespPage>pages)cespPage=pages;const rows=cespFilt.slice((cespPage-1)*PS,cespPage*PS);if(!rows.length){document.getElementById('cespTableBody').innerHTML='<div class="es"><div class="et">Aucune donnée</div></div>';document.getElementById('cespPager').innerHTML='';return;}document.getElementById('cespTableBody').innerHTML=`<table><thead><tr><th>Date</th><th>Responsable</th><th>N° ST</th><th>Fiche</th></tr></thead><tbody>${rows.map(r=>{const f=allData().find(x=>x.numero_st===r.numero_st);return`<tr><td style="font-family:var(--font-mono);font-size:12px;color:var(--accent)">${fmtDate(r.date_cesp)}</td><td>${rb(r.responsable)}</td><td class="mono"><span class="hl">${r.numero_st}</span></td><td class="tsm tm">${f?`${escHtml(f.sigle||'—')} Paq.${escHtml(f.paquet||'—')} ${etag(f.edition)}`:'—'}</td></tr>`;}).join('')}</tbody></table>`;let ph=`<span>${(cespPage-1)*PS+1}–${Math.min(cespPage*PS,tot)} sur ${tot}</span><div class="pager-btns">`;ph+=`<button class="pb"${cespPage<=1?' disabled':''} onclick="setCP(${cespPage-1})">‹</button>`;const p2=Math.ceil(tot/PS);for(let i=1;i<=p2;i++){if(p2<=7||Math.abs(i-cespPage)<=1||i===1||i===p2)ph+=`<button class="pb${i===cespPage?' act':''}" onclick="setCP(${i})">${i}</button>`;else if(Math.abs(i-cespPage)===2)ph+=`<span style="color:var(--text3);padding:0 4px">…</span>`;}ph+=`<button class="pb"${cespPage>=p2?' disabled':''} onclick="setCP(${cespPage+1})">›</button></div>`;document.getElementById('cespPager').innerHTML=ph;}
+function setCP(p){cespPage=p;renderCespTable();}
+// ======== CONFIG ========
+function renderConfig(){
+  const isC=cu.role==='chef';let h='';
+  if(isC){
+    h+=`<div class="fc"><div class="fct">Exploitation par défaut</div><div class="fg" style="max-width:240px"><label class="fl">Période courante</label><select id="configExploit" class="fs"></select></div><div class="fa"><button class="btn bp" onclick="saveConfig()">Enregistrer</button></div></div>`;
+    h+=`<div class="fc"><div class="fct">Gestion des Chapitres</div><div class="alert ai2">Importez un fichier Excel ou ajoutez manuellement.</div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px"><div class="fg"><label class="fl">Import Excel</label><div class="uz" onclick="document.getElementById('chapFI').click()" style="padding:12px 16px"><input type="file" id="chapFI" accept=".xlsx,.xls,.csv" onchange="handleChapFile(event)" style="display:none"><span style="font-size:12px;color:var(--text2)">📂 Sélectionner fichier chapitres</span></div></div><div class="fg"><label class="fl">Ajout manuel</label><div style="display:flex;gap:8px"><input type="text" id="newChap" class="fi" placeholder="ex: 750110" style="max-width:160px;font-family:var(--font-mono)" /><button class="btn bsu" onclick="addChap()">Ajouter</button></div></div></div><div id="chapList"></div></div>`;
+    h+=`<div class="fc"><div class="fct">Synchronisation Google Sheets</div><div class="alert ai2">Collez l'URL Web App Apps Script. Chaque saisie, modification et suppression est écrite en temps réel dans votre Google Sheet.</div><div id="configOdSt" style="margin-bottom:12px"></div><div class="fg" style="margin-bottom:14px"><label class="fl">URL Web App Google Apps Script</label><input type="text" id="configOdUrl" class="fi" placeholder="https://script.google.com/macros/s/.../exec" /><div class="hint">Extensions → Apps Script → Déployer → Nouvelle application Web → URL exec</div></div><div class="fa"><button class="btn bp" onclick="saveOdConfig()">Enregistrer l'URL</button><button class="btn bsu" onclick="testOdConnect()">🔌 Tester</button><button class="btn bp" onclick="initGSheets()">⚙️ Initialiser feuilles</button><button class="btn bs" onclick="syncAllToGS()">🔄 Sync complète</button><button class="btn bs" onclick="expData()">Exporter JSON</button></div></div>`;
+    h+=`<div class="fc"><div class="fct" style="color:var(--red)">Gestion des mots de passe</div><div class="alert aw3" style="font-size:12px">Réinitialisez le mot de passe d'un utilisateur. Il devra en créer un nouveau à sa prochaine connexion.</div><div class="fa"><button class="btn bd" onclick="showResetPwdModal()">🔑 Réinitialiser mot de passe utilisateur</button><button class="btn bs" onclick="showMyRecoveryCode()">👁 Voir mon code de récupération</button></div></div>`;
+  }
+  h+=`<div class="fc"><div class="fct">Apparence & Thème</div><div class="tg">${THEMES.map(t=>`<button class="tb ${(state.config?.theme||'dark')===t.id?'act2':''}" onclick="applyTheme('${t.id}')"><div class="tp" style="background:linear-gradient(135deg,${t.c[0]} 0%,${t.c[1]} 50%,${t.c[2]} 100%)"></div><div class="tn">${t.name}</div></button>`).join('')}</div></div>`;
+  h+=`<div class="fc"><div class="fct">Mon mot de passe</div><div class="form-grid" style="max-width:500px"><div class="fg"><label class="fl">Nouveau mot de passe</label><input type="password" id="myNewPwd1" class="fi" placeholder="Minimum 8 caractères" autocomplete="new-password" /></div><div class="fg"><label class="fl">Confirmer</label><input type="password" id="myNewPwd2" class="fi" placeholder="Répétez" autocomplete="new-password" /></div></div><div class="fa"><button class="btn bp" onclick="changeMyPassword()">Changer mon mot de passe</button></div><div id="myPwdAlert" style="margin-top:10px"></div></div>`;
+  document.getElementById('configContent').innerHTML=h;
+  if(isC){
+    const ep=document.getElementById('configExploit');
+    if(ep){const ps=getPeriodes();ep.innerHTML='<option value="">—</option>'+ps.map(p=>`<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('');ep.value=state.config?.exploitation||'';}
+    const urlEl=document.getElementById('configOdUrl');if(urlEl)urlEl.value=state.config?.gsUrl||'';
+    renderChapList();updateCfgOdSt();
+  }
+}
+function updateCfgOdSt(){const el=document.getElementById('configOdSt');if(!el)return;const ok=state.config?.gsConnected,url=state.config?.gsUrl||'';el.innerHTML=ok&&url?'<span class="ods odc"><span class="dot"></span>Connecté — synchronisation active</span>':url?'<span class="ods odp"><span class="dot"></span>URL configurée — non testée</span>':'<span class="ods odd"><span class="dot"></span>Non configuré</span>';}
+function saveOdConfig(){const url=(document.getElementById('configOdUrl')?.value||'').trim();state.config.gsUrl=url;state.config.gsConnected=false;saveState();updateCfgOdSt();updateOdBar();toast('URL Apps Script enregistrée','success');}
+async function testOdConnect(){
+  const url=(document.getElementById('configOdUrl')?.value||state.config?.gsUrl||'').trim();
+  if(!url){toast("Entrez d'abord l'URL Apps Script",'error');return;}
+  state.config.gsUrl=url;saveState();toast('Test en cours...','success');
+  try{
+    const res=await fetch(`${url}?action=ping`,{method:'GET',redirect:'follow'});
+    if(!res.ok){toast(`Erreur HTTP ${res.status} — vérifiez que l'accès est "Tout le monde"`,'error');return;}
+    const text=await res.text();
+    let data;try{data=JSON.parse(text);}catch(e){
+      if(text.includes('accounts.google'))toast('Erreur auth — changez "Qui a accès" en "Tout le monde" dans le déploiement','error');
+      else toast('Réponse inattendue — re-déployez le script','error');return;
+    }
+    if(data.status==='ok'){state.config.gsConnected=true;saveState();updateCfgOdSt();updateOdBar();toast('✓ Google Sheets connecté !','success');}
+    else toast('Erreur script: '+(data.message||'?'),'error');
+  }catch(e){toast('Connexion échouée: '+e.message,'error');}
+}
+async function initGSheets(){if(!state.config?.gsUrl){toast("Entrez d'abord l'URL",'error');return;}toast('Initialisation...','success');const r=await gsCall('POST',{action:'init_sheets'});if(r&&r.status==='ok')toast('✓ Feuilles initialisées','success');else toast('Erreur: '+(r?.message||'?'),'error');}
+async function syncAllToGS(){
+  if(!state.config?.gsUrl||!state.config?.gsConnected){toast('Connectez Google Sheets d\'abord','error');return;}
+  toast('Synchronisation en cours...','success');
+  const sheetsData={};
+  for(const name of COMPTABLES){const entries=state.sheets[name]||[];const rows=[];entries.forEach(e=>entryToRows(e).forEach(r=>rows.push(r)));sheetsData[name]=rows;}
+  const cespRows=(state.cesp||[]).map(row=>({DATE_CESP:row.date_cesp||'',...Object.fromEntries(RESP.map(r=>[r,row[r]||'']))}));
+  const result=await gsCall('POST',{action:'sync_all',sheets:sheetsData,cesp:cespRows});
+  if(result&&result.status==='ok'){toast('✓ Sync complète — '+result.totalRows+' lignes','success');showSyncBadge(true);}
+  else toast('Erreur sync: '+(result?.message||'?'),'error');
+}
+function saveConfig(){if(state.config)state.config.exploitation=document.getElementById('configExploit').value;saveState();toast('Configuration enregistrée','success');}
+function applyTheme(id){document.body.className=id==='dark'?'':`theme-${id}`;if(!state.config)state.config={};state.config.theme=id;saveState();if(!document.getElementById('page-config')?.classList.contains('hidden'))renderConfig();toast(`Thème "${THEMES.find(t=>t.id===id)?.name}" appliqué`,'success');}
+function handleChapFile(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});let added=0;json.forEach(row=>row.forEach(cell=>{const v=String(cell||'').trim();if(v&&!state.chapitres.includes(v)){state.chapitres.push(v);added++;}}));state.chapitres.sort();saveState();renderChapList();toast(`${added} chapitre(s) importé(s)`,'success');}catch(err){toast('Erreur lecture fichier','error');}};reader.readAsArrayBuffer(file);}
+function addChap(){const v=document.getElementById('newChap').value.trim();if(!v)return;if(!state.chapitres.includes(v)){state.chapitres.push(v);state.chapitres.sort();saveState();renderChapList();document.getElementById('newChap').value='';toast(`Chapitre ${v} ajouté`,'success');}}
+function remChap(c){state.chapitres=state.chapitres.filter(x=>x!==c);saveState();renderChapList();}
+function renderChapList(){const el=document.getElementById('chapList');if(!el)return;el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${state.chapitres.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-family:var(--font-mono);font-size:12px">${escHtml(c)}<button onclick="remChap('${escHtml(c)}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0;font-size:15px;line-height:1;min-width:18px">×</button></span>`).join('')}</div>`;}
+function expData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='suivi_st_data.json';a.click();toast('Données exportées','success');}
+async function changeMyPassword(){
+  const p1=document.getElementById('myNewPwd1').value;
+  const p2=document.getElementById('myNewPwd2').value;
+  const al=document.getElementById('myPwdAlert');
+  if(p1.length<8){al.innerHTML='<div class="alert ae2">Minimum 8 caractères.</div>';return;}
+  if(p1!==p2){al.innerHTML='<div class="alert ae2">Les mots de passe ne correspondent pas.</div>';return;}
+  const hash=await sha256(p1);
+  if(!state.passwords)state.passwords={};
+  state.passwords[cu.name]=hash;
+  saveState();
+  al.innerHTML='<div class="alert as2">✓ Mot de passe modifié avec succès.</div>';
+  document.getElementById('myNewPwd1').value='';document.getElementById('myNewPwd2').value='';
+}
+function showMyRecoveryCode(){
+  if(!state.recoveryCode){toast('Aucun code de récupération trouvé','error');return;}
+  const c=state.recoveryCode;
+  alert('Votre code de récupération Chef de Bureau :\n\n'+c.slice(0,4)+'-'+c.slice(4)+'\n\nGardez-le en lieu sûr !');
+}
+// ======== CLOSE MODALS ========
+document.getElementById('saisieModal').addEventListener('click',function(e){if(e.target===this)closeSaisieModal();});
+document.getElementById('detailModal').addEventListener('click',function(e){if(e.target===this)closeDetail();});
+document.getElementById('confirmModal').addEventListener('click',function(e){if(e.target===this)closeConfirm();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSaisieModal();closeDetail();closeConfirm();}});
+</script>
+</body>
+</html>
