@@ -887,13 +887,52 @@ function canDel(r){return cu.role==='chef'||(r.createdBy===cu.name||r._sh===cu.n
 function ownerOf(r){if(r._sh)return r._sh;for(const[sh,rows]of Object.entries(state.sheets)){if(rows.find(x=>x.numero_st===r.numero_st))return sh;}return null;}
 function updateOdBar(){const el=document.getElementById('odStatusBar');if(!el)return;const ok=state.config?.gsConnected,url=state.config?.gsUrl||'';el.innerHTML=ok&&url?'<span class="ods odc"><span class="dot"></span>Google Sheets ✓</span>':url?'<span class="ods odp"><span class="dot"></span>Non connecté</span>':'<span class="ods odd"><span class="dot"></span>Non synchronisé</span>';}
 // ======== GOOGLE SHEETS SYNC ========
-async function gsCall(method,params){
-  const url=state.config?.gsUrl;if(!url)return null;
-  try{
-    if(method==='GET'){const r=await fetch(`${url}?${new URLSearchParams(params)}`,{redirect:'follow'});if(!r.ok)return null;const t=await r.text();try{return JSON.parse(t);}catch{return null;}}
-    else{const r=await fetch(url,{method:'POST',body:JSON.stringify(params),redirect:'follow'});if(!r.ok)return null;const t=await r.text();try{return JSON.parse(t);}catch{return null;}}
-  }catch(e){console.error('GS:',e);return null;}
+// Google Apps Script via iframe trick (contourne CORS)
+function gsCall(method, params) {
+  return new Promise((resolve) => {
+    const url = state.config?.gsUrl;
+    if (!url) { resolve(null); return; }
+    
+    // Callback unique
+    const cbName = 'gs_cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    
+    // Timeout 15 secondes
+    const timer = setTimeout(() => {
+      delete window[cbName];
+      const script = document.getElementById(cbName);
+      if (script) script.remove();
+      resolve(null);
+    }, 15000);
+    
+    window[cbName] = function(data) {
+      clearTimeout(timer);
+      delete window[cbName];
+      const script = document.getElementById(cbName);
+      if (script) script.remove();
+      resolve(data);
+    };
+    
+    if (method === 'GET') {
+      // GET via script tag (JSONP)
+      const qs = new URLSearchParams({...params, callback: cbName}).toString();
+      const script = document.createElement('script');
+      script.id = cbName;
+      script.src = `${url}?${qs}`;
+      script.onerror = () => { clearTimeout(timer); delete window[cbName]; script.remove(); resolve(null); };
+      document.head.appendChild(script);
+    } else {
+      // POST : on encode les données en GET avec callback
+      const allParams = { ...params, callback: cbName };
+      const qs = new URLSearchParams({ data: JSON.stringify(allParams), callback: cbName }).toString();
+      const script = document.createElement('script');
+      script.id = cbName;
+      script.src = `${url}?${qs}`;
+      script.onerror = () => { clearTimeout(timer); delete window[cbName]; script.remove(); resolve(null); };
+      document.head.appendChild(script);
+    }
+  });
 }
+async function gsCallAsync(method,params){return await gsCall(method,params);}
 function entryToRows(entry){
   const b={DATE_DCSAC:entry.date_dcsac||'',NUMERO_ST:entry.numero_st||'',SIGLE:entry.sigle||'',PAQUET:entry.paquet||'',EDITION:entry.edition||'',EXPLOITATION:entry.exploitation||'',RESP_CESP:entry.resp_cesp||'????',DATE_CESP:entry.date_cesp||'',CREATED_BY:entry.createdBy||''};
   const a=entry.actes||[];
