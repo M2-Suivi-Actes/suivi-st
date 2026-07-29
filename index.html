@@ -239,6 +239,37 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 .bms{background:#0078d4;color:#fff;padding:9px 16px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:var(--font);min-height:44px}
 .bms:hover{background:#106ebe}
 </style>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+  import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAokVJd55k9VNPdlIbWXV_j9G3zAKdGzb0",
+    authDomain: "suivi-st-d52ce.firebaseapp.com",
+    projectId: "suivi-st-d52ce",
+    storageBucket: "suivi-st-d52ce.firebasestorage.app",
+    messagingSenderId: "757924630904",
+    appId: "1:757924630904:web:673b6633e722a864b06788d"
+  };
+
+  try {
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    window._db = db;
+    window._fbReady = true;
+    window._setDoc = setDoc;
+    window._getDocs = getDocs;
+    window._deleteDoc = deleteDoc;
+    window._collection = collection;
+    window._doc = doc;
+    console.log('[Firebase] Connected to suivi-st-d52ce');
+    document.dispatchEvent(new Event('firebase-ready'));
+  } catch(e) {
+    console.error('[Firebase] Init error:', e);
+    window._fbReady = false;
+  }
+</script>
 <!-- LOGIN -->
 <div id="loginScreen" class="login-wrap">
   <div class="login-card">
@@ -717,6 +748,16 @@ function loginSuccess(u){
   document.getElementById('sidebarRole').textContent=cu.role==='chef'?'Chef de Bureau':'Comptable';
   if(cu.role==='chef')document.getElementById('nav-bureau-section').classList.remove('hidden');
   updateOdBar();startSession();
+  // Load data from Firebase
+  if(window._fbReady){
+    fbLoadAll().then(ok=>{
+      if(ok){toast('✓ Données chargées depuis Firebase','success');renderDash();}
+    });
+  } else {
+    document.addEventListener('firebase-ready',()=>{
+      fbLoadAll().then(ok=>{if(ok){toast('✓ Firebase connecté','success');renderDash();}});
+    },{once:true});
+  }
   showPage('dashboard');
   // Check if admin recovery code exists
   if(cu.role==='chef'&&!state.recoveryCode)generateRecoveryCode();
@@ -885,61 +926,112 @@ function toast(msg,type='info'){
 function canEdit(r){return cu.role==='chef'||(r.createdBy===cu.name||r._sh===cu.name);}
 function canDel(r){return cu.role==='chef'||(r.createdBy===cu.name||r._sh===cu.name);}
 function ownerOf(r){if(r._sh)return r._sh;for(const[sh,rows]of Object.entries(state.sheets)){if(rows.find(x=>x.numero_st===r.numero_st))return sh;}return null;}
-function updateOdBar(){const el=document.getElementById('odStatusBar');if(!el)return;const ok=state.config?.gsConnected,url=state.config?.gsUrl||'';el.innerHTML=ok&&url?'<span class="ods odc"><span class="dot"></span>Google Sheets ✓</span>':url?'<span class="ods odp"><span class="dot"></span>Non connecté</span>':'<span class="ods odd"><span class="dot"></span>Non synchronisé</span>';}
+function updateOdBar(){const el=document.getElementById('odStatusBar');if(!el)return;const fbOk=window._fbReady;el.innerHTML=fbOk?'<span class="ods odc"><span class="dot"></span>Firebase connecté ✓</span>':'<span class="ods odp"><span class="dot"></span>Firebase en cours...</span>';}
 // ======== GOOGLE SHEETS SYNC ========
-// Google Apps Script via iframe trick (contourne CORS)
-function gsCall(method, params) {
-  return new Promise((resolve) => {
-    const url = state.config?.gsUrl;
-    if (!url) { resolve(null); return; }
-    
-    // Callback unique
-    const cbName = 'gs_cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    
-    // Timeout 15 secondes
-    const timer = setTimeout(() => {
-      delete window[cbName];
-      const script = document.getElementById(cbName);
-      if (script) script.remove();
-      resolve(null);
-    }, 15000);
-    
-    window[cbName] = function(data) {
-      clearTimeout(timer);
-      delete window[cbName];
-      const script = document.getElementById(cbName);
-      if (script) script.remove();
-      resolve(data);
-    };
-    
-    if (method === 'GET') {
-      // GET via script tag (JSONP)
-      const qs = new URLSearchParams({...params, callback: cbName}).toString();
-      const script = document.createElement('script');
-      script.id = cbName;
-      script.src = `${url}?${qs}`;
-      script.onerror = () => { clearTimeout(timer); delete window[cbName]; script.remove(); resolve(null); };
-      document.head.appendChild(script);
-    } else {
-      // POST : on encode les données en GET avec callback
-      const allParams = { ...params, callback: cbName };
-      const qs = new URLSearchParams({ data: JSON.stringify(allParams), callback: cbName }).toString();
-      const script = document.createElement('script');
-      script.id = cbName;
-      script.src = `${url}?${qs}`;
-      script.onerror = () => { clearTimeout(timer); delete window[cbName]; script.remove(); resolve(null); };
-      document.head.appendChild(script);
-    }
-  });
+// ======== FIREBASE FIRESTORE SYNC ========
+function getDB() { return window._db; }
+
+async function fbSaveEntry(sheetName, entry) {
+  try {
+    const db = getDB(); if (!db) return false;
+    const id = `${sheetName}_${entry.numero_st || Date.now()}`;
+    await window._setDoc(window._doc(db, 'entries', id), {
+      ...entry,
+      _sheet: sheetName,
+      _updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch(e) { console.error('FB save:', e); return false; }
 }
-async function gsCallAsync(method,params){return await gsCall(method,params);}
+
+async function fbDeleteEntry(sheetName, numeroST) {
+  try {
+    const db = getDB(); if (!db) return false;
+    const id = `${sheetName}_${numeroST}`;
+    await window._deleteDoc(window._doc(db, 'entries', id));
+    return true;
+  } catch(e) { console.error('FB delete:', e); return false; }
+}
+
+async function fbSaveCesp(cespRow) {
+  try {
+    const db = getDB(); if (!db) return false;
+    const id = `cesp_${cespRow.date_cesp}_${Date.now()}`;
+    await window._setDoc(window._doc(db, 'cesp', id), {
+      ...cespRow,
+      _updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch(e) { console.error('FB cesp:', e); return false; }
+}
+
+async function fbLoadAll() {
+  try {
+    const db = getDB(); if (!db) return false;
+    // Load entries
+    const entriesSnap = await window._getDocs(window._collection(db, 'entries'));
+    const newSheets = {VICKY:[],ROSA:[],MIHANTA:[],FANILO:[],TIANA:[]};
+    entriesSnap.forEach(doc => {
+      const d = doc.data();
+      const sh = d._sheet;
+      if (newSheets[sh]) {
+        const entry = {...d};
+        delete entry._sheet; delete entry._updatedAt;
+        newSheets[sh].push(entry);
+      }
+    });
+    state.sheets = newSheets;
+    // Load cesp
+    const cespSnap = await window._getDocs(window._collection(db, 'cesp'));
+    const newCesp = [];
+    cespSnap.forEach(doc => {
+      const d = doc.data();
+      const row = {...d};
+      delete row._updatedAt;
+      newCesp.push(row);
+    });
+    state.cesp = newCesp;
+    saveState();
+    return true;
+  } catch(e) { console.error('FB load:', e); return false; }
+}
+
+async function fbSyncEntry(sheetName, entry) {
+  const ok = await fbSaveEntry(sheetName, entry);
+  if (ok) showSyncBadge(true);
+  else showSyncBadge(false);
+}
+
+async function fbDeleteSync(sheetName, numeroST) {
+  const ok = await fbDeleteEntry(sheetName, numeroST);
+  if (ok) showSyncBadge(true);
+  else showSyncBadge(false);
+}
+
+async function syncAllToFirebase(){
+  if(!window._fbReady){toast('Firebase non disponible','error');return;}
+  toast('Synchronisation en cours...','success');
+  let count=0;
+  for(const[sh,rows] of Object.entries(state.sheets)){
+    for(const entry of rows){
+      await fbSaveEntry(sh,entry);count++;
+    }
+  }
+  for(const row of state.cesp||[]){await fbSaveCesp(row);}
+  toast(`✓ ${count} entrées synchronisées vers Firebase`,'success');
+  showSyncBadge(true);
+}
+
+// Legacy gsCall compatibility
+async function gsCall(method, params) { return null; }
+async function gsCallAsync(method, params) { return null; }
 function entryToRows(entry){
   const b={DATE_DCSAC:entry.date_dcsac||'',NUMERO_ST:entry.numero_st||'',SIGLE:entry.sigle||'',PAQUET:entry.paquet||'',EDITION:entry.edition||'',EXPLOITATION:entry.exploitation||'',RESP_CESP:entry.resp_cesp||'????',DATE_CESP:entry.date_cesp||'',CREATED_BY:entry.createdBy||''};
   const a=entry.actes||[];
   if(!a.length)return[{...b,IM:'',MVT:'',CHAPITRE:''}];
   return a.map(x=>({...b,IM:x.im||'',MVT:x.mvt||'',CHAPITRE:x.chapitre||''}));
 }
-function showSyncBadge(ok){
+function showSyncBadge(ok){ if(!ok) return updateOdBar(); 
   const el=document.getElementById('odStatusBar');if(!el)return;
   el.innerHTML=ok?'<span class="ods odc"><span class="dot"></span>Google Sheets synchronisé ✓</span>':'<span class="ods odd"><span class="dot"></span>Erreur sync</span>';
   setTimeout(updateOdBar,ok?3000:5000);
@@ -1109,7 +1201,7 @@ function doDel(r){
   const nst=r.numero_st;
   state.sheets[sh]=state.sheets[sh].filter(x=>x.numero_st!==nst);
   saveState();
-  gsSync(()=>gsDeleteEntry(sh,nst));
+  fbDeleteSync(sh, nst);
   toast(`ST ${nst||'—'} supprimé`,'success');
   const ap=PAGES.find(p=>!document.getElementById('page-'+p)?.classList.contains('hidden'));
   if(ap==='dashboard')renderDash();if(ap==='liste')filterList();if(ap==='recherche')doSearch();
@@ -1241,8 +1333,8 @@ async function submitSaisie(){
   const sh=editEntry?editEntry.sheetName:(cu.sheet||'VICKY');
   const entry={date_dcsac:dd,numero_st:nst,sigle:si||'',paquet:pa?pa.toUpperCase():'',edition:ed,exploitation:ex,resp_cesp:resp==='Auto'||resp.includes('trouvé')?'????':resp,date_cesp:dc,createdBy:editEntry?(curDetail?.createdBy||cu.name):cu.name,actes:acteRows.map(a=>({im:a.im.trim(),mvt:a.mvt,chapitre:a.chapitre||''}))};
   if(!state.sheets[sh])state.sheets[sh]=[];
-  if(editEntry){const d=state.sheets[editEntry.sheetName];const idx=d.findIndex(r=>r.numero_st===editEntry.numero_st);if(idx>=0)d[idx]=entry;toast(`ST ${nst||'—'} mis à jour`,'success');gsSync(()=>gsUpdateEntry(editEntry.sheetName,editEntry.numero_st,entry));}
-  else{state.sheets[sh].push(entry);toast(`ST ${nst||'—'} enregistré`,'success');gsSync(()=>gsAppendEntry(sh,entry));}
+  if(editEntry){const d=state.sheets[editEntry.sheetName];const idx=d.findIndex(r=>r.numero_st===editEntry.numero_st);if(idx>=0)d[idx]=entry;toast(`ST ${nst||'—'} mis à jour`,'success');fbSyncEntry(editEntry.sheetName, entry);}
+  else{state.sheets[sh].push(entry);toast(`ST ${nst||'—'} enregistré`,'success');fbSyncEntry(sh, entry);}
   saveState();closeSaisieModal();
   const ap=PAGES.find(p=>!document.getElementById('page-'+p)?.classList.contains('hidden'));
   if(ap==='dashboard')renderDash();if(ap==='liste')filterList();
@@ -1276,7 +1368,7 @@ function handleCESPFile(event){const file=event.target.files[0];if(!file)return;
 function confirmCESPImport(){if(!pendingCESP)return;const imp=pendingCESP;state.cesp.push(...imp);let upd=0;for(const[,rows]of Object.entries(state.sheets)){for(const e of rows){for(const row of imp){for(const r of RESP){if(row[r]===e.numero_st){e.resp_cesp=r;e.date_cesp=row.date_cesp;upd++;}}}}}saveState();gsSync(()=>gsCall('POST',{action:'append_cesp',rows:imp.map(row=>({DATE_CESP:row.date_cesp||'',...Object.fromEntries(RESP.map(r=>[r,row[r]||'']))}))}) );toast(`Import: ${imp.length} lignes, ${upd} fiches mises à jour`,'success');pendingCESP=null;document.getElementById('cespImportActions').style.display='none';document.getElementById('cespImportStatus').innerHTML='<div class="alert as2">✓ Import confirmé.</div>';document.getElementById('cespImportPreview').innerHTML='';document.getElementById('cespFileInput').value='';}
 function cancelCESPImport(){pendingCESP=null;document.getElementById('cespImportStatus').innerHTML='';document.getElementById('cespImportPreview').innerHTML='';document.getElementById('cespImportActions').style.display='none';document.getElementById('cespFileInput').value='';}
 function renderCespManualGrid(){document.getElementById('cespManualGrid').innerHTML=RESP.map(r=>`<div class="fg"><label class="fl">${rb(r)} ${r}</label><textarea id="cM_${r}" class="fi" rows="3" placeholder="Un N° ST par ligne" style="resize:vertical;font-family:var(--font-mono);font-size:13px;min-height:80px"></textarea></div>`).join('');}
-function submitCESPManual(){const dt=document.getElementById('cespManualDate').value,al=document.getElementById('cespManualAlert');if(!dt){al.innerHTML='<div class="alert ae2">Date requise</div>';return;}const ent={};for(const r of RESP){const raw=document.getElementById(`cM_${r}`)?.value||'';ent[r]=raw.split('\n').map(v=>parseInt(v.trim())).filter(v=>!isNaN(v));}const tot=Object.values(ent).reduce((s,v)=>s+v.length,0);if(!tot){al.innerHTML='<div class="alert ae2">Au moins un N° ST</div>';return;}const mx=Math.max(...Object.values(ent).map(v=>v.length),1);const newRows=[];for(let i=0;i<mx;i++){const row={date_cesp:dt};for(const r of RESP)row[r]=ent[r][i]||null;state.cesp.push(row);newRows.push(row);}let upd=0;for(const[,rows]of Object.entries(state.sheets)){for(const e of rows){for(const r of RESP){if(ent[r].includes(e.numero_st)){e.resp_cesp=r;e.date_cesp=dt;upd++;}}}}saveState();gsSync(()=>gsCall('POST',{action:'append_cesp',rows:newRows.map(row=>({DATE_CESP:row.date_cesp||'',...Object.fromEntries(RESP.map(r=>[r,row[r]||'']))}))}));al.innerHTML=`<div class="alert as2">✓ ${tot} ST enregistrés, ${upd} fiches mises à jour.</div>`;toast(`${tot} ST assignés`,'success');resetCespManual();}
+function submitCESPManual(){const dt=document.getElementById('cespManualDate').value,al=document.getElementById('cespManualAlert');if(!dt){al.innerHTML='<div class="alert ae2">Date requise</div>';return;}const ent={};for(const r of RESP){const raw=document.getElementById(`cM_${r}`)?.value||'';ent[r]=raw.split('\n').map(v=>parseInt(v.trim())).filter(v=>!isNaN(v));}const tot=Object.values(ent).reduce((s,v)=>s+v.length,0);if(!tot){al.innerHTML='<div class="alert ae2">Au moins un N° ST</div>';return;}const mx=Math.max(...Object.values(ent).map(v=>v.length),1);const newRows=[];for(let i=0;i<mx;i++){const row={date_cesp:dt};for(const r of RESP)row[r]=ent[r][i]||null;state.cesp.push(row);newRows.push(row);}let upd=0;for(const[,rows]of Object.entries(state.sheets)){for(const e of rows){for(const r of RESP){if(ent[r].includes(e.numero_st)){e.resp_cesp=r;e.date_cesp=dt;upd++;}}}}saveState();newRows.forEach(row => fbSaveCesp(row));al.innerHTML=`<div class="alert as2">✓ ${tot} ST enregistrés, ${upd} fiches mises à jour.</div>`;toast(`${tot} ST assignés`,'success');resetCespManual();}
 function resetCespManual(){document.getElementById('cespManualDate').value='';RESP.forEach(r=>{const el=document.getElementById(`cM_${r}`);if(el)el.value='';}); }
 function renderDonneesCESP(){cespFilt=buildCespFlat();document.getElementById('cespCount').textContent=`${cespFilt.length} entrées`;renderCespTable();}
 function buildCespFlat(){const rows=[];for(const row of state.cesp){for(const r of RESP){if(row[r]!=null)rows.push({date_cesp:row.date_cesp,responsable:r,numero_st:row[r]});}}return rows;}
@@ -1289,7 +1381,7 @@ function renderConfig(){
   if(isC){
     h+=`<div class="fc"><div class="fct">Exploitation par défaut</div><div class="fg" style="max-width:240px"><label class="fl">Période courante</label><select id="configExploit" class="fs"></select></div><div class="fa"><button class="btn bp" onclick="saveConfig()">Enregistrer</button></div></div>`;
     h+=`<div class="fc"><div class="fct">Gestion des Chapitres</div><div class="alert ai2">Importez un fichier Excel ou ajoutez manuellement.</div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px"><div class="fg"><label class="fl">Import Excel</label><div class="uz" onclick="document.getElementById('chapFI').click()" style="padding:12px 16px"><input type="file" id="chapFI" accept=".xlsx,.xls,.csv" onchange="handleChapFile(event)" style="display:none"><span style="font-size:12px;color:var(--text2)">📂 Sélectionner fichier chapitres</span></div></div><div class="fg"><label class="fl">Ajout manuel</label><div style="display:flex;gap:8px"><input type="text" id="newChap" class="fi" placeholder="ex: 750110" style="max-width:160px;font-family:var(--font-mono)" /><button class="btn bsu" onclick="addChap()">Ajouter</button></div></div></div><div id="chapList"></div></div>`;
-    h+=`<div class="fc"><div class="fct">Synchronisation Google Sheets</div><div class="alert ai2">Collez l'URL Web App Apps Script. Chaque saisie, modification et suppression est écrite en temps réel dans votre Google Sheet.</div><div id="configOdSt" style="margin-bottom:12px"></div><div class="fg" style="margin-bottom:14px"><label class="fl">URL Web App Google Apps Script</label><input type="text" id="configOdUrl" class="fi" placeholder="https://script.google.com/macros/s/.../exec" /><div class="hint">Extensions → Apps Script → Déployer → Nouvelle application Web → URL exec</div></div><div class="fa"><button class="btn bp" onclick="saveOdConfig()">Enregistrer l'URL</button><button class="btn bsu" onclick="testOdConnect()">🔌 Tester</button><button class="btn bp" onclick="initGSheets()">⚙️ Initialiser feuilles</button><button class="btn bs" onclick="syncAllToGS()">🔄 Sync complète</button><button class="btn bs" onclick="expData()">Exporter JSON</button></div></div>`;
+    h+=`<div class="fc"><div class="fct" style="color:var(--green)">🔥 Firebase connecté</div><div class="alert as2">Les données sont synchronisées automatiquement avec Firebase (Google). Aucune configuration supplémentaire nécessaire.</div><div id="configOdSt" style="margin-bottom:12px"></div><div class="fa"><button class="btn bp" onclick="fbLoadAll().then(()=>{renderDash();toast('Données rechargées','success')})">🔄 Recharger depuis Firebase</button><button class="btn bp" onclick="syncAllToFirebase()">📤 Sync complète vers Firebase</button><button class="btn bs" onclick="expData()">Exporter JSON</button></div></div>`; h+=`<div class="fc" style="display:none"><div class="fct">Synchronisation Google Sheets (désactivé)</div><div class="alert ai2">Collez l'URL Web App Apps Script. Chaque saisie, modification et suppression est écrite en temps réel dans votre Google Sheet.</div><div id="configOdSt" style="margin-bottom:12px"></div><div class="fg" style="margin-bottom:14px"><label class="fl">URL Web App Google Apps Script</label><input type="text" id="configOdUrl" class="fi" placeholder="https://script.google.com/macros/s/.../exec" /><div class="hint">Extensions → Apps Script → Déployer → Nouvelle application Web → URL exec</div></div><div class="fa"><button class="btn bp" onclick="saveOdConfig()">Enregistrer l'URL</button><button class="btn bsu" onclick="testOdConnect()">🔌 Tester</button><button class="btn bp" onclick="initGSheets()">⚙️ Initialiser feuilles</button><button class="btn bs" onclick="syncAllToGS()">🔄 Sync complète</button><button class="btn bs" onclick="expData()">Exporter JSON</button></div></div>`;
     h+=`<div class="fc"><div class="fct" style="color:var(--red)">Gestion des mots de passe</div><div class="alert aw3" style="font-size:12px">Réinitialisez le mot de passe d'un utilisateur. Il devra en créer un nouveau à sa prochaine connexion.</div><div class="fa"><button class="btn bd" onclick="showResetPwdModal()">🔑 Réinitialiser mot de passe utilisateur</button><button class="btn bs" onclick="showMyRecoveryCode()">👁 Voir mon code de récupération</button></div></div>`;
   }
   h+=`<div class="fc"><div class="fct">Apparence & Thème</div><div class="tg">${THEMES.map(t=>`<button class="tb ${(state.config?.theme||'dark')===t.id?'act2':''}" onclick="applyTheme('${t.id}')"><div class="tp" style="background:linear-gradient(135deg,${t.c[0]} 0%,${t.c[1]} 50%,${t.c[2]} 100%)"></div><div class="tn">${t.name}</div></button>`).join('')}</div></div>`;
