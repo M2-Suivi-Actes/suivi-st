@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://script.google.com; connect-src 'self' https://script.google.com;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://www.gstatic.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com wss://*.firebaseio.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://www.gstatic.com https://*.googleapis.com;">
 <title>SUIVI ST — Système de Gestion</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -242,7 +242,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-  import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyAokVJd55k9VNPdlIbWXV_j9G3zAKdGzb0",
@@ -261,6 +261,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
     window._setDoc = setDoc;
     window._getDocs = getDocs;
     window._deleteDoc = deleteDoc;
+    window._getDoc = getDoc;
     window._collection = collection;
     window._doc = doc;
     console.log('[Firebase] Connected to suivi-st-d52ce');
@@ -693,6 +694,12 @@ async function doLogin(){
   const al=document.getElementById('loginAlert');
   al.innerHTML='';
   if(!u){al.innerHTML='<div class="alert ae2">Sélectionnez un utilisateur.</div>';return;}
+  // Load latest passwords from Firebase first
+  if(window._fbReady) {
+    al.innerHTML='<div class="alert ai2" style="font-size:12px">⏳ Vérification en cours...</div>';
+    await fbLoadPasswords();
+    al.innerHTML='';
+  }
   // Check locked
   if(state.locked&&state.locked[u]){
     document.getElementById('lockBanner').classList.remove('hidden');
@@ -718,6 +725,7 @@ async function doLogin(){
       if(!state.locked)state.locked={};
       state.locked[u]=true;
       saveState();
+      fbSaveMeta(u, {locked:true, attempts:state.attempts[u]||5});
       document.getElementById('lockBanner').classList.remove('hidden');
       document.getElementById('loginBtn').disabled=true;
       document.getElementById('attemptCounter').textContent='';
@@ -775,6 +783,8 @@ async function setFirstPassword(){
   if(!state.passwords)state.passwords={};
   state.passwords[firstLoginUser]=hash;
   saveState();
+  // Save password to Firebase so all devices share it
+  await fbSavePassword(firstLoginUser, hash);
   toast('✓ Mot de passe créé avec succès','success');
   loginSuccess(firstLoginUser);
 }
@@ -798,6 +808,7 @@ function generateRecoveryCode(){
   const formatted=code.slice(0,4)+'-'+code.slice(4);
   state.recoveryCode=code;
   saveState();
+  fbSaveRecoveryCode(code);
   // Show to admin
   toast('Code de récupération Admin généré. Notez-le !','success');
   setTimeout(()=>{
@@ -851,7 +862,7 @@ function showResetPwdModal(){
   document.getElementById('resetPwdModal').classList.remove('hidden');
 }
 
-function doResetUserPwd(){
+async function doResetUserPwd(){
   const u=document.getElementById('resetPwdUser').value;
   if(!u){toast('Sélectionnez un utilisateur','error');return;}
   if(!state.passwords)state.passwords={};
@@ -859,6 +870,9 @@ function doResetUserPwd(){
   if(state.locked)state.locked[u]=false;
   if(state.attempts)state.attempts[u]=0;
   saveState();
+  fbSaveMeta(u, {locked:false, attempts:0});
+  // Delete password from Firebase
+  try{if(window._db)window._deleteDoc(window._doc(window._db,'auth',u));}catch(e){}
   document.getElementById('resetPwdModal').classList.add('hidden');
   toast(`Mot de passe de ${u==='CHEF_BUREAU'?'CHEF DE BUREAU':u} réinitialisé. Il devra en créer un nouveau.`,'success');
 }
@@ -963,6 +977,62 @@ async function fbSaveCesp(cespRow) {
     });
     return true;
   } catch(e) { console.error('FB cesp:', e); return false; }
+}
+
+// ======== FIREBASE PASSWORD SYNC ========
+async function fbSavePassword(username, hash) {
+  try {
+    const db = getDB(); if (!db) return false;
+    await window._setDoc(window._doc(db, 'auth', username), {
+      hash: hash,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch(e) { console.error('FB pwd save:', e); return false; }
+}
+
+async function fbLoadPasswords() {
+  try {
+    const db = getDB(); if (!db) return false;
+    const snap = await window._getDocs(window._collection(db, 'auth'));
+    if (!state.passwords) state.passwords = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.hash) state.passwords[doc.id] = d.hash;
+    });
+    // Also load locked/attempts
+    const metaSnap = await window._getDocs(window._collection(db, 'auth_meta'));
+    if (!state.locked) state.locked = {};
+    if (!state.attempts) state.attempts = {};
+    metaSnap.forEach(doc => {
+      const d = doc.data();
+      if (d.locked !== undefined) state.locked[doc.id] = d.locked;
+      if (d.attempts !== undefined) state.attempts[doc.id] = d.attempts;
+    });
+    if (!state.recoveryCode && state.passwords['CHEF_BUREAU']) {
+      // Load recovery code
+      try {
+        const rcDoc = await window._getDoc(window._doc(db, 'auth_meta', 'recovery'));
+        if (rcDoc.exists()) state.recoveryCode = rcDoc.data().code;
+      } catch(e) {}
+    }
+    saveState();
+    return true;
+  } catch(e) { console.error('FB pwd load:', e); return false; }
+}
+
+async function fbSaveMeta(username, data) {
+  try {
+    const db = getDB(); if (!db) return;
+    await window._setDoc(window._doc(db, 'auth_meta', username), data);
+  } catch(e) {}
+}
+
+async function fbSaveRecoveryCode(code) {
+  try {
+    const db = getDB(); if (!db) return;
+    await window._setDoc(window._doc(db, 'auth_meta', 'recovery'), { code });
+  } catch(e) {}
 }
 
 async function fbLoadAll() {
@@ -1440,6 +1510,7 @@ async function changeMyPassword(){
   if(!state.passwords)state.passwords={};
   state.passwords[cu.name]=hash;
   saveState();
+  fbSavePassword(cu.name, hash);
   al.innerHTML='<div class="alert as2">✓ Mot de passe modifié avec succès.</div>';
   document.getElementById('myNewPwd1').value='';document.getElementById('myNewPwd2').value='';
 }
