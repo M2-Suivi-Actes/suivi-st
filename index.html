@@ -249,6 +249,30 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 #firstLoginScreen .btn.bp{background:linear-gradient(135deg,#b95206,#d87912);box-shadow:0 10px 22px rgba(177,75,4,.24)}
 #firstLoginScreen .btn.bp:hover{background:linear-gradient(135deg,#a34706,#c96609)}
 
+#maintenanceOverlay{
+  position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,233,189,.5) 0, transparent 30%),
+    linear-gradient(135deg, rgba(75,38,13,.94), rgba(56,26,10,.96) 55%, rgba(75,38,13,.94));
+  backdrop-filter:blur(3px);
+}
+.maint-card{
+  width:min(460px,100%);text-align:center;padding:42px 34px 34px;border-radius:20px;
+  background:linear-gradient(160deg,#fffdf8,#fff3dc);box-shadow:0 30px 80px rgba(0,0,0,.45);
+  border:1px solid rgba(255,255,255,.4);
+}
+.maint-icon{
+  width:74px;height:74px;margin:0 auto 20px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(145deg,#b94f06,#e47b16);color:#fff;box-shadow:0 8px 20px rgba(110,52,8,.3);
+}
+.maint-icon svg{width:36px;height:36px}
+.maint-title{font-size:24px;font-weight:900;color:#38210f;margin-bottom:12px}
+.maint-msg{font-size:14.5px;line-height:1.6;color:#5c4a3a}
+.maint-dots{display:flex;justify-content:center;gap:7px;margin-top:22px}
+.maint-dots span{width:8px;height:8px;border-radius:50%;background:#c96609;opacity:.35;animation:maintPulse 1.4s ease-in-out infinite}
+.maint-dots span:nth-child(2){animation-delay:.2s}
+.maint-dots span:nth-child(3){animation-delay:.4s}
+@keyframes maintPulse{0%,80%,100%{opacity:.25;transform:scale(.85)}40%{opacity:1;transform:scale(1)}}
 #loginScreen{
   --sgoa-brown-dark:#4b260d;--sgoa-brown:#8b430d;--sgoa-orange:#c96609;
   --sgoa-gold:#e8a72f;--sgoa-gold-light:#ffd46d;--sgoa-cream:#fff9ed;
@@ -374,7 +398,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyAokVJd55k9VNPdlIbWXV_j9G3zAKdGzb0",
@@ -396,6 +420,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
     window._getDoc = getDoc;
     window._collection = collection;
     window._doc = doc;
+    window._onSnapshot = onSnapshot;
     console.log('[Firebase] Connected to suivi-st-d52ce');
     document.dispatchEvent(new Event('firebase-ready'));
   } catch(e) {
@@ -436,6 +461,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
         <div class="sgoa-small-line"></div>
 
         <div class="sgoa-alert-zone">
+          <div id="maintenanceLoginBanner" class="hidden" style="margin-bottom:12px"></div>
           <div id="lockBanner" class="lock-banner hidden sgoa-lock-banner">🔒 Compte verrouillé. Contactez le Chef de Bureau.</div>
           <div id="loginAlert"></div>
         </div>
@@ -765,8 +791,8 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
       <div class="fc">
         <div class="fct">Information des Actes</div>
         <div class="form-grid" style="margin-bottom:14px">
-          <div class="fg"><label class="fl" id="fSigleLabel">Sigle <span class="req" id="sigleReqMark">*</span></label><input type="text" id="fSigle" class="fi" placeholder="ex: 605" maxlength="3" oninput="validateSP()" style="font-family:var(--font-mono)" /><div class="hint" id="sigleHint">3 chiffres</div></div>
-          <div class="fg"><label class="fl" id="fPaquetLabel">Paquet <span class="req" id="paquetReqMark">*</span></label><input type="text" id="fPaquet" class="fi" placeholder="ex: 01, 2A" maxlength="3" oninput="validateSP()" style="font-family:var(--font-mono)" /><div class="hint" id="paquetHint">Max 3 car.</div></div>
+          <div class="fg"><label class="fl" id="fSigleLabel">Sigle <span class="req" id="sigleReqMark">*</span></label><input type="text" id="fSigle" class="fi" placeholder="ex: 605" maxlength="6" oninput="validateSP()" style="font-family:var(--font-mono)" /><div class="hint" id="sigleHint">Max 6 chiffres</div></div>
+          <div class="fg"><label class="fl" id="fPaquetLabel">Paquet <span class="req" id="paquetReqMark">*</span></label><input type="text" id="fPaquet" class="fi" placeholder="ex: 01, 2A" maxlength="6" oninput="validateSP()" style="font-family:var(--font-mono)" /><div class="hint" id="paquetHint">Max 6 car.</div></div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
           <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">Actes — IM / MVT / Chapitre</div>
@@ -785,6 +811,19 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
       </div>
     </div>
     <div class="mf"><button class="btn bs" onclick="closeSaisieModal()">Annuler</button><button class="btn bp" onclick="submitSaisie()"><span id="saisieSubmitLabel">Enregistrer</span></button></div>
+  </div>
+</div>
+
+<!-- MODAL ERREURS DE SAISIE -->
+<div id="errorModal" class="modal-bg hidden" style="z-index:10000">
+  <div class="modal msm">
+    <div class="mh"><div class="mt2" style="color:var(--red)">⚠ Erreurs de saisie</div></div>
+    <div class="mb3">
+      <div class="alert ae2" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div id="errorModalList" style="line-height:1.8"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bp" onclick="closeErrorModal()" autofocus>OK</button></div>
   </div>
 </div>
 
@@ -815,6 +854,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 </div>
 
 <div class="tc" id="toastContainer"></div>
+<div id="maintenanceOverlay" class="hidden"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ======== CONSTANTS ========
@@ -916,6 +956,10 @@ async function doLogin(){
   const al=document.getElementById('loginAlert');
   al.innerHTML='';
   if(!u){al.innerHTML='<div class="alert ae2">Sélectionnez un utilisateur.</div>';return;}
+  if(state.maintenance?.active && u!=='CHEF_BUREAU'){
+    al.innerHTML='<div class="alert aw3">🔧 Application en maintenance. Seul le Chef de Bureau peut se connecter actuellement.</div>';
+    return;
+  }
   if(window._fbReady) {
     al.innerHTML='<div class="alert ai2" style="font-size:12px">⏳ Vérification en cours...</div>';
     await fbLoadPasswords();
@@ -961,6 +1005,7 @@ async function doLogin(){
 function loginSuccess(u){
   preloadData();
   cu={name:u,role:u==='CHEF_BUREAU'?'chef':'comptable',sheet:u==='CHEF_BUREAU'?null:u};
+  applyMaintenanceUI();
   applyTheme(state.config?.theme||'gold');
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('firstLoginScreen').classList.add('hidden');
@@ -974,10 +1019,11 @@ function loginSuccess(u){
   if(window._fbReady){
     fbLoadAll().then(ok=>{
       if(ok){toast('✓ Données chargées depuis Firebase','success');renderDash();}
+      startRealtimeSync();
     });
   } else {
     document.addEventListener('firebase-ready',()=>{
-      fbLoadAll().then(ok=>{if(ok){toast('✓ Firebase connecté','success');renderDash();}});
+      fbLoadAll().then(ok=>{if(ok){toast('✓ Firebase connecté','success');renderDash();}startRealtimeSync();});
     },{once:true});
   }
   showPage('dashboard');
@@ -1086,7 +1132,9 @@ async function doResetUserPwd(){
 }
 
 function doLogout(expired=false){
+  stopRealtimeSync();
   stopSession();cu=null;editEntry=null;
+  applyMaintenanceUI();
   document.getElementById('appScreen').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('loginPass').value='';
@@ -1231,6 +1279,93 @@ async function fbSaveRecoveryCode(code) {
     const db = getDB(); if (!db) return;
     await window._setDoc(window._doc(db, 'auth_meta', 'recovery'), { code });
   } catch(e) {}
+}
+const DEFAULT_MAINT_MSG="L'application est temporairement indisponible pour une opération de maintenance. Nous mettons à jour le système afin d'améliorer votre expérience. Merci de votre patience, l'accès sera rétabli très prochainement.";
+let _unsubMaintenance=null;
+function fmtMaintDate(iso){if(!iso)return'';try{const d=new Date(iso);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}catch(e){return'';}}
+function renderMaintenanceCard(m){
+  return `<div class="maint-card">
+    <div class="maint-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14.7 6.3a4 4 0 0 0-5.4 4.6L3 17.2V21h3.8l6.3-6.3a4 4 0 0 0 4.6-5.4l-2.8 2.8-2-2 2.8-2.8z"/></svg></div>
+    <div class="maint-title">Maintenance en cours</div>
+    <div class="maint-msg">${escHtml((m&&m.message)||DEFAULT_MAINT_MSG)}</div>
+    <div class="maint-dots"><span></span><span></span><span></span></div>
+  </div>`;
+}
+function startMaintenanceListener(){
+  const db=getDB(); if(!db||_unsubMaintenance) return;
+  _unsubMaintenance=window._onSnapshot(window._doc(db,'system','maintenance'), snap=>{
+    const d=snap.exists()?snap.data():null;
+    state.maintenance=(d&&d.active)?{active:true,message:d.message||'',updatedBy:d.updatedBy||'',updatedAt:d.updatedAt||''}:{active:false};
+    applyMaintenanceUI();
+  }, e=>console.error('[Firebase] onSnapshot maintenance:', e));
+}
+function applyMaintenanceUI(){
+  const m=state.maintenance,active=!!(m&&m.active);
+  const lb=document.getElementById('maintenanceLoginBanner');
+  if(lb){lb.classList.toggle('hidden',!active);if(active)lb.innerHTML=`<div class="alert aw3" style="align-items:center">🔧 <span>Application en maintenance — seul le Chef de Bureau peut se connecter actuellement.</span></div>`;}
+  const ov=document.getElementById('maintenanceOverlay');
+  if(ov){
+    const block=active && cu && cu.role!=='chef';
+    ov.classList.toggle('hidden',!block);
+    if(block)ov.innerHTML=renderMaintenanceCard(m);
+  }
+  if(cu&&cu.role==='chef'&&!document.getElementById('page-config')?.classList.contains('hidden'))renderConfig();
+}
+async function activateMaintenance(){
+  if(!cu||cu.role!=='chef')return;
+  const db=getDB(); if(!db){toast('Firebase non disponible','error');return;}
+  const msg=(document.getElementById('maintMsgInput')?.value||'').trim()||DEFAULT_MAINT_MSG;
+  try{
+    await window._setDoc(window._doc(db,'system','maintenance'),{active:true,message:msg,updatedBy:cu.name,updatedAt:new Date().toISOString()});
+    toast('🛠 Mode maintenance activé','success');
+  }catch(e){toast('Erreur: '+e.message,'error');}
+}
+async function deactivateMaintenance(){
+  if(!cu||cu.role!=='chef')return;
+  const db=getDB(); if(!db){toast('Firebase non disponible','error');return;}
+  try{
+    await window._setDoc(window._doc(db,'system','maintenance'),{active:false,message:'',updatedBy:cu.name,updatedAt:new Date().toISOString()});
+    toast('✅ Application remise en ligne','success');
+  }catch(e){toast('Erreur: '+e.message,'error');}
+}
+let _unsubEntries=null,_unsubCesp=null;
+function anyModalOpen(){
+  return ['choixTypeModal','saisieModal','detailModal','confirmModal','resetPwdModal'].some(id=>{
+    const el=document.getElementById(id);return el && !el.classList.contains('hidden');
+  });
+}
+function refreshCurrentPage(){
+  if(anyModalOpen())return; // ne pas interrompre une saisie/action en cours
+  const active=PAGES.find(p=>!document.getElementById('page-'+p)?.classList.contains('hidden'));
+  if(active==='dashboard')renderDash();
+  else if(active==='liste')renderListe();
+  else if(active==='rapports')renderRapports();
+  else if(active==='donnees_cesp')renderDonneesCESP();
+  else if(active==='cesp')renderCespManualGrid();
+  updateOdBar();
+}
+function startRealtimeSync(){
+  const db=getDB(); if(!db) return false;
+  if(_unsubEntries) _unsubEntries();
+  if(_unsubCesp) _unsubCesp();
+  _unsubEntries = window._onSnapshot(window._collection(db,'entries'), snap=>{
+    const newSheets={VICKY:[],ROSA:[],MIHANTA:[],FANILO:[],TIANA:[],CHEF_BUREAU:[]};
+    snap.forEach(doc=>{
+      const d=doc.data(); const sh=d._sheet;
+      if(newSheets[sh]){ const entry={...d}; delete entry._sheet; delete entry._updatedAt; newSheets[sh].push(entry); }
+    });
+    state.sheets=newSheets; saveState(); refreshCurrentPage();
+  }, e=>console.error('[Firebase] onSnapshot entries:', e));
+  _unsubCesp = window._onSnapshot(window._collection(db,'cesp'), snap=>{
+    const newCesp=[];
+    snap.forEach(doc=>{ const row={...doc.data()}; delete row._updatedAt; newCesp.push(row); });
+    state.cesp=newCesp; saveState(); refreshCurrentPage();
+  }, e=>console.error('[Firebase] onSnapshot cesp:', e));
+  return true;
+}
+function stopRealtimeSync(){
+  if(_unsubEntries){_unsubEntries();_unsubEntries=null;}
+  if(_unsubCesp){_unsubCesp();_unsubCesp=null;}
 }
 async function fbLoadAll() {
   try {
@@ -1526,13 +1661,32 @@ function openSaisieWithType(type){
   if(respSec) respSec.classList.toggle('hidden', type!=='SGSP');
   document.getElementById('saisieModal').classList.remove('hidden');
 }
+function resetSaisieFormKeepDate(dd){
+  editEntry=null;acteRows=[{im:'',mvt:'',chapitre:''}];
+  document.getElementById('saisieModalTitle').textContent='Nouvelle saisie';
+  document.getElementById('saisieSubmitLabel').textContent='Enregistrer';
+  document.getElementById('saisieAlert').innerHTML='';
+  document.getElementById('saisieTypeLabel').textContent='— Type: '+selectedActeType;
+  ['fNumeroST','fSigle','fPaquet'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.className='fi';}});
+  document.getElementById('fDateDCSAC').value=dd||'';
+  document.getElementById('fEdition').value='';
+  document.getElementById('fRespCESP').value='Auto';document.getElementById('fDateCESP').value='Auto';
+  ['stHint','sigleHint','paquetHint','exploitHint'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
+  const el=document.getElementById('fExploitation');
+  el.innerHTML='<option value="">— Choisir —</option>'+getPeriodes().map(p=>`<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('');
+  el.value=state.config?.exploitation||'';
+  updateReqFields();renderActesRows();
+  const respSec=document.getElementById('respSection');
+  if(respSec) respSec.classList.toggle('hidden', selectedActeType!=='SGSP');
+  const nstEl=document.getElementById('fNumeroST');if(nstEl)nstEl.focus();
+}
 function updateReqFields(){
   const isC=cu&&cu.role==='chef';
   document.getElementById('fSTLabel').innerHTML=isC?'Numéro ST <span style="color:var(--text3);font-size:10px">(optionnel)</span>':'Numéro ST <span class="req">*</span>';
   document.getElementById('sigleReqMark').style.display=isC?'none':'';
-  document.getElementById('sigleHint').textContent=isC?'3 chiffres (optionnel)':'3 chiffres';
+  document.getElementById('sigleHint').textContent=isC?'Max 6 chiffres (optionnel)':'Max 6 chiffres';
   document.getElementById('paquetReqMark').style.display=isC?'none':'';
-  document.getElementById('paquetHint').textContent=isC?'Max 3 car. (optionnel)':'Max 3 car.';
+  document.getElementById('paquetHint').textContent=isC?'Max 6 car. (optionnel)':'Max 6 car.';
 }
 function openEdit(r){
   if(typeof r==='string')r=JSON.parse(r);const ow=ownerOf(r);
@@ -1580,12 +1734,12 @@ function validateSP(){
   const isC=cu&&cu.role==='chef';
   const sh=document.getElementById('sigleHint'),sI=document.getElementById('fSigle');
   const ph=document.getElementById('paquetHint'),pI=document.getElementById('fPaquet');
-  if(!si){sh.textContent=isC?'3 chiffres (optionnel)':'3 chiffres';sh.className='hint';sI.className='fi';}
-  else if(!/^\d{3}$/.test(si)){sh.textContent='⚠ 3 chiffres uniquement';sh.className='hint err';sI.className='fi err';}
+  if(!si){sh.textContent=isC?'Max 6 chiffres (optionnel)':'Max 6 chiffres';sh.className='hint';sI.className='fi';}
+  else if(!/^\d{1,6}$/.test(si)){sh.textContent='⚠ 6 chiffres maximum';sh.className='hint err';sI.className='fi err';}
   else{sh.textContent='✓';sh.className='hint ok';sI.className='fi ok';}
-  if(!pa){ph.textContent=isC?'Max 3 car. (optionnel)':'Max 3 car.';ph.className='hint';pI.className='fi';}
-  else if(!/^[A-Za-z0-9]{1,3}$/.test(pa)){ph.textContent='⚠ Max 3 car.';ph.className='hint err';pI.className='fi err';}
-  else if(ex&&si&&/^\d{3}$/.test(si)&&ed){
+  if(!pa){ph.textContent=isC?'Max 6 car. (optionnel)':'Max 6 car.';ph.className='hint';pI.className='fi';}
+  else if(!/^[A-Za-z0-9]{1,6}$/.test(pa)){ph.textContent='⚠ Max 6 car.';ph.className='hint err';pI.className='fi err';}
+  else if(ex&&si&&/^\d{1,6}$/.test(si)&&ed){
     const dup=allData().find(r=>r.sigle===si&&r.paquet&&r.paquet.toUpperCase()===pa.toUpperCase()&&r.exploitation===ex&&r.edition===ed&&(!editEntry||r.numero_st!==editEntry.numero_st));
     if(dup){ph.textContent=`⚠ Déjà utilisé pour ${ed} ${ex}`;ph.className='hint err';pI.className='fi err';}
     else{ph.textContent='✓ Disponible';ph.className='hint ok';pI.className='fi ok';}
@@ -1610,8 +1764,19 @@ function renderActesRows(){
 }
 function aIMch(i,v){acteRows[i].im=v;if(v.length>=7&&i+1<acteRows.length&&acteRows[i].chapitre&&!acteRows[i+1].chapitre){const sel=document.getElementById(`aCH_${i+1}`);if(sel){sel.value=acteRows[i].chapitre;acteRows[i+1].chapitre=acteRows[i].chapitre;}}}
 function chapSel(i,v){if(v==='__m__'){document.getElementById(`aCHm_${i}`).classList.remove('hidden');acteRows[i].chapitre='';}else{document.getElementById(`aCHm_${i}`).classList.add('hidden');acteRows[i].chapitre=v;if(v&&i+1<acteRows.length&&!acteRows[i+1].chapitre){const sel=document.getElementById(`aCH_${i+1}`);if(sel){sel.value=v;acteRows[i+1].chapitre=v;}}}}
-function addActeRow(){if(acteRows.length>=10){toast('Maximum 10 actes','error');return;}const lc=acteRows.length>0?acteRows[acteRows.length-1].chapitre:'';acteRows.push({im:'',mvt:'',chapitre:lc||''});renderActesRows();setTimeout(()=>document.getElementById(`aIM_${acteRows.length-1}`)?.focus(),50);}
+function addActeRow(){
+  if(acteRows.length>=10){toast('Maximum 10 actes','error');return;}
+  const last=acteRows.length>0?acteRows[acteRows.length-1]:null;
+  acteRows.push({im:last?last.im:'',mvt:'',chapitre:last?last.chapitre:''});
+  renderActesRows();
+  setTimeout(()=>{const el=document.getElementById(`aIM_${acteRows.length-1}`);if(el){el.focus();el.select();}},50);
+}
 function remActeRow(i){acteRows.splice(i,1);renderActesRows();}
+function showErrorModal(errs){
+  document.getElementById('errorModalList').innerHTML=errs.map(e=>`<div style="color:var(--red)">• ${escHtml(e)}</div>`).join('');
+  document.getElementById('errorModal').classList.remove('hidden');
+}
+function closeErrorModal(){document.getElementById('errorModal').classList.add('hidden');}
 async function submitSaisie(){
   const al=document.getElementById('saisieAlert');
   const dd=document.getElementById('fDateDCSAC').value;
@@ -1626,24 +1791,26 @@ async function submitSaisie(){
   if(!isC&&(!nst||isNaN(nst)))errs.push('Numéro ST invalide');
   if(nst&&allData().find(r=>r.numero_st===nst&&(!editEntry||r.numero_st!==editEntry.numero_st)))errs.push(`ST ${nst} déjà utilisé`);
   if(!ed)errs.push("Type d'édition requis");if(!ex)errs.push('Exploitation requise');
-  if(!isC&&!/^\d{3}$/.test(si))errs.push('Sigle: 3 chiffres');
-  if(si&&!/^\d{3}$/.test(si))errs.push('Sigle: 3 chiffres');
-  if(!isC&&!/^[A-Za-z0-9]{1,3}$/.test(pa))errs.push('Paquet: max 3 car.');
-  if(pa&&!/^[A-Za-z0-9]{1,3}$/.test(pa))errs.push('Paquet: max 3 car.');
+  if(!isC&&!/^\d{1,6}$/.test(si))errs.push('Sigle: 6 chiffres maximum');
+  if(si&&!/^\d{1,6}$/.test(si))errs.push('Sigle: 6 chiffres maximum');
+  if(!isC&&!/^[A-Za-z0-9]{1,6}$/.test(pa))errs.push('Paquet: max 6 car.');
+  if(pa&&!/^[A-Za-z0-9]{1,6}$/.test(pa))errs.push('Paquet: max 6 car.');
   if(acteRows.length===0)errs.push('Au moins un acte requis');
   acteRows.forEach((a,i)=>{if(!a.im||!(/^\d{7}$/.test(a.im)||/^[A-Za-z]\d{6}$/.test(a.im)))errs.push(`Acte ${i+1}: IM invalide (7 car.)`);if(!a.mvt)errs.push(`Acte ${i+1}: MVT requis`);});
   if(!editEntry&&si&&pa&&ex&&ed){const dup=allData().find(r=>r.sigle===si&&r.paquet&&r.paquet.toUpperCase()===pa.toUpperCase()&&r.exploitation===ex&&r.edition===ed);if(dup)errs.push(`Sigle ${si}/Paquet ${pa} déjà utilisé pour ${ed} ${ex}`);}
-  if(errs.length){al.innerHTML=`<div class="alert ae2">${errs.map(e=>`• ${escHtml(e)}`).join('<br>')}</div>`;return;}
+  if(errs.length){showErrorModal(errs);return;}
   const resp=document.getElementById('fRespCESP').value||'????';
   const dc=(resp!=='????'&&resp!=='Auto'&&!resp.includes('trouvé'))?(document.getElementById('fDateCESP').value||''):'';
   const sh=editEntry?editEntry.sheetName:(cu.role==='chef'?'CHEF_BUREAU':(cu.sheet||'VICKY'));
   const entry={date_dcsac:dd,numero_st:nst,sigle:si||'',paquet:pa?pa.toUpperCase():'',edition:ed,exploitation:ex,resp_cesp:resp==='Auto'||resp.includes('trouvé')?'????':resp,date_cesp:dc,createdBy:editEntry?(curDetail?.createdBy||cu.name):cu.name,type_acte:selectedActeType||'SGSP',actes:acteRows.map(a=>({im:a.im.trim(),mvt:a.mvt,chapitre:a.chapitre||''}))};
   if(!state.sheets[sh])state.sheets[sh]=[];
+  const wasEdit=!!editEntry;
   if(editEntry){const d=state.sheets[editEntry.sheetName];const idx=d.findIndex(r=>r.numero_st===editEntry.numero_st);if(idx>=0)d[idx]=entry;toast(`ST ${nst||'—'} mis à jour`,'success');fbSyncEntry(editEntry.sheetName, entry);}
-  else{state.sheets[sh].push(entry);toast(`ST ${nst||'—'} enregistré`,'success');fbSyncEntry(sh, entry);}
-  saveState();closeSaisieModal();
+  else{state.sheets[sh].push(entry);toast(`ST ${nst||'—'} enregistré — Prêt pour la saisie suivante`,'success');fbSyncEntry(sh, entry);}
+  saveState();
   const ap=PAGES.find(p=>!document.getElementById('page-'+p)?.classList.contains('hidden'));
   if(ap==='dashboard')renderDash();if(ap==='liste')filterList();
+  if(wasEdit){closeSaisieModal();}else{resetSaisieFormKeepDate(dd);}
 }
 // ======== RECHERCHE ========
 function doSearch(){
@@ -1690,9 +1857,11 @@ function updateRp2Periodes(){updateRpPeriodes('rp2');updateRapport2Preview();}
 function updateRapport2Preview(){
   const ed=document.getElementById('rp2Edition').value,ty=document.getElementById('rp2Type').value,pe=document.getElementById('rp2Periode').value,el=document.getElementById('rp2Preview');
   if(!ed||!pe){el.innerHTML='';return;}
-  let data = allData().filter(r=>r.edition===ed && r.exploitation===pe);
-  if(ty) data = data.filter(r=>r.type_acte===ty);
-  const rows=COMPTABLES.map(c=>{const d=(state.sheets[c]||[]).filter(r=>data.includes(r)); return {c, nb:d.length, na:d.reduce((s,r)=>s+(r.actes||[]).length,0)};});
+  const rows=COMPTABLES.map(c=>{
+    let d=(state.sheets[c]||[]).filter(r=>r.edition===ed && r.exploitation===pe);
+    if(ty) d=d.filter(r=>r.type_acte===ty);
+    return {c, nb:d.length, na:d.reduce((s,r)=>s+(r.actes||[]).length,0)};
+  });
   el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Comptable</th><th>Nb ST</th><th>Nb Actes</th></tr></thead><tbody>${rows.map(r=>`<tr><td style="font-weight:500">${r.c==='CHEF_BUREAU'?'Chef':r.c}</td><td class="mono">${r.nb}</td><td class="mono">${r.na}</td></tr>`).join('')}<tr style="background:var(--surface2);font-weight:600"><td>TOTAL</td><td class="mono">${rows.reduce((s,r)=>s+r.nb,0)}</td><td class="mono">${rows.reduce((s,r)=>s+r.na,0)}</td></tr></tbody></table></div>`;
 }
 function exportRapport1(){
@@ -1732,6 +1901,13 @@ function setCP(p){cespPage=p;renderCespTable();}
 function renderConfig(){
   const isC=cu.role==='chef';let h='';
   if(isC){
+    const m=state.maintenance,active=!!(m&&m.active);
+    h+=`<div class="fc" style="border-color:${active?'var(--red)':'var(--border)'}">
+      <div class="fct" style="color:${active?'var(--red)':'inherit'}">🛠 Maintenance de l'application</div>
+      <div class="alert ${active?'aw3':'ai2'}">${active?`⚠️ Maintenance <strong>active</strong> depuis le ${fmtMaintDate(m.updatedAt)}. Les comptables ne peuvent pas se connecter tant que vous n'avez pas remis l'application en ligne.`:"L'application est en ligne pour tout le monde. Activez la maintenance avant une sauvegarde, une mise à jour ou une amélioration afin d'empêcher temporairement les comptables de se connecter."}</div>
+      <div class="fg"><label class="fl">Message affiché aux utilisateurs (optionnel)</label><textarea id="maintMsgInput" class="fi" rows="3" placeholder="${DEFAULT_MAINT_MSG}" ${active?'':''}>${active?escHtml(m.message||''):''}</textarea></div>
+      <div class="fa">${active?`<button class="btn bp" onclick="deactivateMaintenance()">✅ Remettre en ligne</button>`:`<button class="btn bd" onclick="activateMaintenance()">🛠 Activer la maintenance</button>`}</div>
+    </div>`;
     h+=`<div class="fc"><div class="fct">Exploitation par défaut</div><div class="fg" style="max-width:240px"><label class="fl">Période courante</label><select id="configExploit" class="fs"></select></div><div class="fa"><button class="btn bp" onclick="saveConfig()">Enregistrer</button></div></div>`;
     h+=`<div class="fc"><div class="fct">Gestion des Chapitres</div><div class="alert ai2">Importez un fichier Excel ou ajoutez manuellement.</div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px"><div class="fg"><label class="fl">Import Excel</label><div class="uz" onclick="document.getElementById('chapFI').click()" style="padding:12px 16px"><input type="file" id="chapFI" accept=".xlsx,.xls,.csv" onchange="handleChapFile(event)" style="display:none"><span style="font-size:12px;color:var(--text2)">📂 Sélectionner fichier chapitres</span></div></div><div class="fg"><label class="fl">Ajout manuel</label><div style="display:flex;gap:8px"><input type="text" id="newChap" class="fi" placeholder="ex: 750110" style="max-width:160px;font-family:var(--font-mono)" /><button class="btn bsu" onclick="addChap()">Ajouter</button></div></div></div><div id="chapList"></div></div>`;
     h+=`<div class="fc"><div class="fct" style="color:var(--green)">🔥 Firebase connecté</div><div class="alert as2">Les données sont synchronisées automatiquement avec Firebase (Google). Aucune configuration supplémentaire nécessaire.</div><div id="configOdSt" style="margin-bottom:12px"></div><div class="fa"><button class="btn bp" onclick="fbLoadAll().then(()=>{renderDash();toast('Données rechargées','success')})">🔄 Recharger depuis Firebase</button><button class="btn bp" onclick="syncAllToFirebase()">📤 Sync complète vers Firebase</button><button class="btn bs" onclick="expData()">Exporter JSON</button></div></div>`;
@@ -1780,6 +1956,7 @@ document.getElementById('detailModal').addEventListener('click',function(e){if(e
 document.getElementById('confirmModal').addEventListener('click',function(e){if(e.target===this)closeConfirm();});
 document.getElementById('choixTypeModal').addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden');});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSaisieModal();closeDetail();closeConfirm();document.getElementById('choixTypeModal').classList.add('hidden');}});
+if(window._fbReady){startMaintenanceListener();}else{document.addEventListener('firebase-ready',()=>startMaintenanceListener(),{once:true});}
 </script>
 </body>
 </html>
