@@ -695,7 +695,14 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
               <select class="fsel" id="filterSigle" onchange="filterList()"><option value="">Tous sigles</option></select>
               <select class="fsel" id="filterResp" onchange="filterList()"><option value="">Tous resp.</option><option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option><option value="D4">D4</option><option value="D5">D5</option><option value="D6">D6</option><option value="D7">D7</option><option value="D8">D8</option><option value="VONJY">VONJY</option><option value="????">Non assigné</option></select>
             </div>
-            <span class="tsm tm" id="listCount">—</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <label style="font-size:12px;color:var(--text2);white-space:nowrap">Lignes/page
+                <select class="fsel" id="listPageSize" onchange="changeListPageSize(this.value)" style="margin-left:6px">
+                  <option value="20">20</option><option value="40">40</option><option value="60">60</option><option value="80">80</option><option value="100">100</option>
+                </select>
+              </label>
+              <span class="tsm tm" id="listCount">—</span>
+            </div>
           </div>
           <div id="listSelectionBar" class="alert ae2 hidden" style="align-items:center;justify-content:space-between;margin:0 0 10px"><span></span><div style="display:flex;gap:8px"><button class="btn bs" onclick="clearListSelection()">Annuler</button><button class="btn bd" onclick="askBulkDelete()">🗑 Supprimer la sélection</button></div></div>
           <div class="table-scroll" id="listeTableScroll"><div id="listTableBody"></div></div>
@@ -869,7 +876,7 @@ const COMPTABLES=['VICKY','ROSA','MIHANTA','FANILO','TIANA','CHEF_BUREAU'];
 const THEMES=[{id:'gold',name:'Doré (Login)',c:['#fff9ed','#fbeed0','#c96609']},{id:'dark',name:'Sombre',c:['#0d1117','#161b22','#2f81f7']},{id:'light',name:'Clair',c:['#f6f8fa','#fff','#0969da']},{id:'blue',name:'Bleu Acier',c:['#0a1628','#0f2044','#4d9de0']},{id:'forest',name:'Forêt',c:['#0d1a12','#122118','#4caf50']},{id:'mono',name:'Mono',c:['#111','#1a1a1a','#eee']}];
 const MAX_ATTEMPTS=5;
 const SESSION_TIMEOUT=30*60*1000; // 30 min
-const PS=20;
+let PS=20;
 
 // ======== STATE ========
 let cu=null,editEntry=null,acteRows=[],pendingCESP=null,curDetail=null,confirmCb=null,impSelectedFile=null,listSelected=new Set();
@@ -1598,13 +1605,14 @@ function renderListTable(){
       ${canDel(r)?`<button class="bdel" onclick="askDel(${escJ(r)})" style="margin-left:4px">🗑</button>`:''}
     </td>
   </tr>`;}).join('')}</tbody></table>`;
-  let ph=`<span>${(listPage-1)*PS+1}–${Math.min(listPage*PS,total)} sur ${total}</span><div class="pager-btns">`;
-  ph+=`<button class="pb"${listPage<=1?' disabled':''} onclick="setLP(${listPage-1})">‹</button>`;
   const p2=Math.ceil(total/PS);
-  for(let i=1;i<=p2;i++){if(p2<=7||Math.abs(i-listPage)<=1||i===1||i===p2)ph+=`<button class="pb${i===listPage?' act':''}" onclick="setLP(${i})">${i}</button>`;else if(Math.abs(i-listPage)===2)ph+=`<span style="color:var(--text3);padding:0 4px">…</span>`;}
-  ph+=`<button class="pb"${listPage>=p2?' disabled':''} onclick="setLP(${listPage+1})">›</button></div>`;
+  const pss=document.getElementById('listPageSize');if(pss)pss.value=String(PS);
+  let ph=`<span>Page ${listPage} sur ${p2}</span><div class="pager-btns">`;
+  ph+=`<button class="pb"${listPage<=1?' disabled':''} onclick="setLP(${listPage-1})">‹ Précédent</button>`;
+  ph+=`<button class="pb"${listPage>=p2?' disabled':''} onclick="setLP(${listPage+1})">Suivant ›</button></div>`;
   document.getElementById('listPager').innerHTML=ph;
 }
+function changeListPageSize(v){PS=parseInt(v)||20;listPage=1;renderListTable();}
 function rowEid(r){return r._id||stableEntryId(r._sh||ownerOf(r),r);}
 function toggleListSelect(eid,checked){if(checked)listSelected.add(eid);else listSelected.delete(eid);updateListSelectionBar();}
 function toggleSelectAllVisible(checked){
