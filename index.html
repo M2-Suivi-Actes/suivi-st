@@ -108,9 +108,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 .sg .stat-value{color:var(--green)}.sb .stat-value{color:var(--accent)}.so .stat-value{color:var(--orange)}.sp .stat-value{color:var(--purple)}
 .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-#listeTableScroll{max-height:calc(100vh - 330px);min-height:220px;overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch}
+#listeTableScroll{max-height:calc(100vh - 220px);min-height:400px;overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch}
 #listeTableScroll thead th{position:sticky;top:0;z-index:5;box-shadow:0 1px 0 var(--border)}
-@media(max-width:768px){#listeTableScroll{max-height:calc(100vh - 380px);min-height:180px}}
+@media(max-width:768px){#listeTableScroll{max-height:calc(100vh - 280px);min-height:300px}}
 .table-toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap}
 .toolbar-left{display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap}
 .search-box{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;flex:1;max-width:280px;min-height:40px}
@@ -1539,7 +1539,7 @@ function renderDashTable(base){
   const titles={all:'Toutes les entrées',asgn:'Entrées assignées',pend:'En attente',mine:cu.role==='chef'?'Toutes':'Mes entrées'};
   document.getElementById('dashTableTitle').textContent=dashF.stat?titles[dashF.stat]:'Activité récente';
   document.getElementById('dashTableCount').textContent=`${data.length} entrée${data.length!==1?'s':''}`;
-  const rows=dashF.stat?data.slice().sort(cmpSiglePaquet):data.slice().reverse().slice(0,20);const isC=cu.role==='chef';
+  const rows=dashF.stat?data.slice().sort(cmpSiglePaquet):data.slice().sort(cmpSiglePaquet).slice(0,20);const isC=cu.role==='chef';
   if(!rows.length){document.getElementById('dashTable').innerHTML='<div class="es"><div class="et">Aucune entrée</div><div class="esb">Commencez par une nouvelle saisie</div></div>';return;}
   document.getElementById('dashTable').innerHTML=`<table><thead><tr><th>Date</th><th>N° ST</th>${isC?'<th>Comptable</th>':''}<th>Édition</th><th>Type</th><th>Sigle</th><th>Paquet</th><th>Actes</th><th>Exploitation</th><th>Resp.</th><th>Actions</th></tr></thead>
   <tbody>${rows.map(r=>`<tr onclick="showDetail(${escJ(r)})">
