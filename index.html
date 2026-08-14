@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r4';
+  var APP_BUILD='2026-08-14-r5';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -910,7 +910,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 <script>
 // ======== CONSTANTS ========
 const MVT=['1','2','2A','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29','30','31','32','33','34','35','36','37','38','39','40','41','42','43','44','45','46','47','48','49','50','51','60','61','62','63','64','65','66','67','68','69','70','71','72','73','74','75','76','77','78','80','81','82','83','84','85','86','90'];
-const CHAP_DEF=['210013','210014','210110','210113','210114','210115','210117','210129','210130','260110','310130','340110','350110','380110','410100','410110','430110','440110','450110','510110','520110','530110','610110','620110','630110','810110'];
+const CHAP_DEF=['10110','110110','140110','150110','160110','210013','210014','210110','210114','210115','210116','210117','210129','210130','260110','320110','340110','350110','360110','370110','380110','410110','430110','440110','450110','50110','510110','520110','530110','610110','620110','630110','640110','660110','710110','711010','711020','711030','711040','711050','711060','750110','760110','810110','811110','811120','811130','811140','811150','811160','830110','840110','860110','870110','930110'];
 const RESP=['D1','D2','D3','D4','D5','D6','D7','D8','VONJY'];
 const COMPTABLES=['VICKY','ROSA','MIHANTA','FANILO','TIANA','CHEF_BUREAU'];
 const THEMES=[{id:'gold',name:'Doré (Login)',c:['#fff9ed','#fbeed0','#c96609']},{id:'dark',name:'Sombre',c:['#0d1117','#161b22','#2f81f7']},{id:'light',name:'Clair',c:['#f6f8fa','#fff','#0969da']},{id:'blue',name:'Bleu Acier',c:['#0a1628','#0f2044','#4d9de0']},{id:'forest',name:'Forêt',c:['#0d1a12','#122118','#4caf50']},{id:'mono',name:'Mono',c:['#111','#1a1a1a','#eee']}];
@@ -1327,16 +1327,12 @@ async function fbLoadChapitres() {
   try {
     const db = getDB(); if (!db) return false;
     const snap = await window._getDocs(window._collection(db, 'chapitres'));
-    if (snap.empty) {
-      // Aucun chapitre en base : on sème avec la liste locale actuelle (défauts + ajouts déjà faits sur ce navigateur)
-      const seed = [...new Set([...CHAP_DEF, ...(state.chapitres||[])])];
-      for (const code of seed) { await fbSaveChapitre(code); }
-      state.chapitres = seed.sort();
-    } else {
-      const list = [];
-      snap.forEach(doc => list.push(doc.id));
-      state.chapitres = list.sort();
-    }
+    const remote = new Set();
+    snap.forEach(doc => remote.add(doc.id));
+    // Complète Firebase avec tout chapitre connu (par défaut dans le code ou déjà ajouté localement) mais absent côté serveur
+    const toPush = [...new Set([...CHAP_DEF, ...(state.chapitres||[])])].filter(c => !remote.has(c));
+    for (const code of toPush) { const ok = await fbSaveChapitre(code); if (ok) remote.add(code); }
+    state.chapitres = [...remote].sort();
     saveState();
     return true;
   } catch(e) { console.error('FB chap load:', e); return false; }
