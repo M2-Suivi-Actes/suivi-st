@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r2';
+  var APP_BUILD='2026-08-14-r4';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -1306,6 +1306,41 @@ async function fbSaveCesp(cespRow) {
     return true;
   } catch(e) { console.error('FB cesp:', e); return false; }
 }
+async function fbSaveChapitre(code) {
+  try {
+    const db = getDB(); if (!db) return false;
+    await window._setDoc(window._doc(db, 'chapitres', code), {
+      value: code,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch(e) { console.error('FB chap save:', e); return false; }
+}
+async function fbDeleteChapitre(code) {
+  try {
+    const db = getDB(); if (!db) return false;
+    await window._deleteDoc(window._doc(db, 'chapitres', code));
+    return true;
+  } catch(e) { console.error('FB chap delete:', e); return false; }
+}
+async function fbLoadChapitres() {
+  try {
+    const db = getDB(); if (!db) return false;
+    const snap = await window._getDocs(window._collection(db, 'chapitres'));
+    if (snap.empty) {
+      // Aucun chapitre en base : on sème avec la liste locale actuelle (défauts + ajouts déjà faits sur ce navigateur)
+      const seed = [...new Set([...CHAP_DEF, ...(state.chapitres||[])])];
+      for (const code of seed) { await fbSaveChapitre(code); }
+      state.chapitres = seed.sort();
+    } else {
+      const list = [];
+      snap.forEach(doc => list.push(doc.id));
+      state.chapitres = list.sort();
+    }
+    saveState();
+    return true;
+  } catch(e) { console.error('FB chap load:', e); return false; }
+}
 async function fbSavePassword(username, hash) {
   try {
     const db = getDB(); if (!db) return false;
@@ -1403,7 +1438,7 @@ async function deactivateMaintenance(){
     toast('✅ Application remise en ligne','success');
   }catch(e){toast('Erreur: '+e.message,'error');}
 }
-let _unsubEntries=null,_unsubCesp=null;
+let _unsubEntries=null,_unsubCesp=null,_unsubChapitres=null;
 function anyModalOpen(){
   return ['choixTypeModal','saisieModal','detailModal','confirmModal','resetPwdModal'].some(id=>{
     const el=document.getElementById(id);return el && !el.classList.contains('hidden');
@@ -1423,6 +1458,7 @@ function startRealtimeSync(){
   const db=getDB(); if(!db) return false;
   if(_unsubEntries) _unsubEntries();
   if(_unsubCesp) _unsubCesp();
+  if(_unsubChapitres) _unsubChapitres();
   _unsubEntries = window._onSnapshot(window._collection(db,'entries'), snap=>{
     const newSheets={VICKY:[],ROSA:[],MIHANTA:[],FANILO:[],TIANA:[],CHEF_BUREAU:[]};
     snap.forEach(doc=>{
@@ -1436,11 +1472,17 @@ function startRealtimeSync(){
     snap.forEach(doc=>{ const row={...doc.data()}; delete row._updatedAt; newCesp.push(row); });
     state.cesp=newCesp; saveState(); refreshCurrentPage();
   }, e=>console.error('[Firebase] onSnapshot cesp:', e));
+  _unsubChapitres = window._onSnapshot(window._collection(db,'chapitres'), snap=>{
+    const list=[]; snap.forEach(doc=>list.push(doc.id));
+    state.chapitres=list.sort(); saveState();
+    renderChapList(); refreshCurrentPage();
+  }, e=>console.error('[Firebase] onSnapshot chapitres:', e));
   return true;
 }
 function stopRealtimeSync(){
   if(_unsubEntries){_unsubEntries();_unsubEntries=null;}
   if(_unsubCesp){_unsubCesp();_unsubCesp=null;}
+  if(_unsubChapitres){_unsubChapitres();_unsubChapitres=null;}
 }
 async function fbLoadAll() {
   try {
@@ -1466,6 +1508,7 @@ async function fbLoadAll() {
       newCesp.push(row);
     });
     state.cesp = newCesp;
+    await fbLoadChapitres();
     saveState();
     return true;
   } catch(e) { console.error('FB load:', e); return false; }
@@ -1928,6 +1971,17 @@ function showErrorModal(errs){
   document.getElementById('errorModal').classList.remove('hidden');
 }
 function closeErrorModal(){document.getElementById('errorModal').classList.add('hidden');}
+function registerNewChapitresFromActes(actes){
+  const news=[];
+  actes.forEach(a=>{
+    const c=(a.chapitre||'').trim();
+    if(c && !state.chapitres.includes(c)){ state.chapitres.push(c); news.push(c); }
+  });
+  if(news.length){
+    state.chapitres.sort(); saveState(); renderChapList();
+    news.forEach(c=>fbSaveChapitre(c).then(ok=>{if(!ok)toast(`⚠ Chapitre ${c} ajouté localement mais pas synchronisé (Firebase) — vérifiez les droits d'accès`,'error');}));
+  }
+}
 async function submitSaisie(){
   const al=document.getElementById('saisieAlert');
   const dd=document.getElementById('fDateDCSAC').value;
@@ -1956,6 +2010,7 @@ async function submitSaisie(){
   const sh=editEntry?editEntry.sheetName:(cu.role==='chef'?'CHEF_BUREAU':(cu.sheet||'VICKY'));
   const entryId=editEntry?(editEntry._id||stableEntryId(sh,{numero_st:editEntry.numero_st})):stableEntryId(sh,{numero_st:nst});
   const entry={_id:entryId,date_dcsac:dd,numero_st:nst,sigle:si||'',paquet:pa?pa.toUpperCase():'',edition:ed,exploitation:ex,resp_cesp:resp==='Auto'||resp.includes('trouvé')?'????':resp,date_cesp:dc,createdBy:editEntry?(curDetail?.createdBy||cu.name):cu.name,type_acte:selectedActeType||'SGSP',actes:acteRows.map(a=>({im:a.im.trim(),mvt:a.mvt,chapitre:a.chapitre||''}))};
+  registerNewChapitresFromActes(entry.actes);
   if(!state.sheets[sh])state.sheets[sh]=[];
   const wasEdit=!!editEntry;
   if(editEntry){
@@ -2106,7 +2161,7 @@ function renderConfig(){
       <div class="fa">${active?`<button class="btn bp" onclick="deactivateMaintenance()">✅ Remettre en ligne</button>`:`<button class="btn bd" onclick="activateMaintenance()">🛠 Activer la maintenance</button>`}</div>
     </div>`;
     h+=`<div class="fc"><div class="fct">Exploitation par défaut</div><div class="fg" style="max-width:240px"><label class="fl">Période courante</label><select id="configExploit" class="fs"></select></div><div class="fa"><button class="btn bp" onclick="saveConfig()">Enregistrer</button></div></div>`;
-    h+=`<div class="fc"><div class="fct">Gestion des Chapitres</div><div class="alert ai2">Importez un fichier Excel ou ajoutez manuellement.</div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px"><div class="fg"><label class="fl">Import Excel</label><div class="uz" onclick="document.getElementById('chapFI').click()" style="padding:12px 16px"><input type="file" id="chapFI" accept=".xlsx,.xls,.csv" onchange="handleChapFile(event)" style="display:none"><span style="font-size:12px;color:var(--text2)">📂 Sélectionner fichier chapitres</span></div></div><div class="fg"><label class="fl">Ajout manuel</label><div style="display:flex;gap:8px"><input type="text" id="newChap" class="fi" placeholder="ex: 750110" style="max-width:160px;font-family:var(--font-mono)" /><button class="btn bsu" onclick="addChap()">Ajouter</button></div></div></div><div id="chapList"></div></div>`;
+    h+=`<div class="fc"><div class="fct">Gestion des Chapitres</div><div class="alert ai2">🔥 Liste partagée : tout chapitre importé ou ajouté ici est synchronisé automatiquement et visible par tous les utilisateurs, en temps réel.</div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px"><div class="fg"><label class="fl">Import Excel</label><div class="uz" onclick="document.getElementById('chapFI').click()" style="padding:12px 16px"><input type="file" id="chapFI" accept=".xlsx,.xls,.csv" onchange="handleChapFile(event)" style="display:none"><span style="font-size:12px;color:var(--text2)">📂 Sélectionner fichier chapitres</span></div></div><div class="fg"><label class="fl">Ajout manuel</label><div style="display:flex;gap:8px"><input type="text" id="newChap" class="fi" placeholder="ex: 750110" style="max-width:160px;font-family:var(--font-mono)" /><button class="btn bsu" onclick="addChap()">Ajouter</button></div></div></div><div id="chapList"></div></div>`;
     h+=`<div class="fc"><div class="fct" style="color:var(--green)">🔥 Firebase connecté</div><div class="alert as2">Les données sont synchronisées automatiquement avec Firebase (Google). Aucune configuration supplémentaire nécessaire.</div><div id="configOdSt" style="margin-bottom:12px"></div><div class="fa"><button class="btn bp" onclick="fbLoadAll().then(()=>{renderDash();toast('Données rechargées','success')})">🔄 Recharger depuis Firebase</button><button class="btn bp" onclick="syncAllToFirebase()">📤 Sync complète vers Firebase</button><button class="btn bs" onclick="expData()">Exporter JSON</button></div></div>`;
     h+=`<div class="fc"><div class="fct">📥 Import Excel — Répartition des actes</div><div class="alert ai2">Importez un fichier Excel (colonnes : <strong>DATE DCSAC, NUMERO ST, SIGLE, PAQUET, IM, MVT, CHAPITRE</strong>) et répartissez automatiquement les actes vers un comptable ou le Chef de Bureau. Les mouvements multiples dans une même cellule (ex: 28/63, 28-63, 28,63, 28 et 63) sont automatiquement séparés en actes distincts. La règle de 10 actes maximum par Sigle/Paquet est respectée — le surplus est réparti en entrées supplémentaires.</div>
       <div class="form-grid" style="max-width:720px">
@@ -2140,7 +2195,7 @@ async function initGSheets(){if(!state.config?.gsUrl){toast("Entrez d'abord l'UR
 async function syncAllToGS(){if(!state.config?.gsUrl||!state.config?.gsConnected){toast('Connectez Google Sheets d\'abord','error');return;}toast('Synchronisation en cours...','success');const sheetsData={};for(const name of COMPTABLES){const entries=state.sheets[name]||[];const rows=[];entries.forEach(e=>entryToRows(e).forEach(r=>rows.push(r)));sheetsData[name]=rows;}const cespRows=(state.cesp||[]).map(row=>({DATE_CESP:row.date_cesp||'',...Object.fromEntries(RESP.map(r=>[r,row[r]||'']))}));const result=await gsCall('POST',{action:'sync_all',sheets:sheetsData,cesp:cespRows});if(result&&result.status==='ok'){toast('✓ Sync complète — '+result.totalRows+' lignes','success');showSyncBadge(true);}else toast('Erreur sync: '+(result?.message||'?'),'error');}
 function saveConfig(){if(state.config)state.config.exploitation=document.getElementById('configExploit').value;saveState();toast('Configuration enregistrée','success');}
 function applyTheme(id){document.body.className=id==='dark'?'':`theme-${id}`;if(!state.config)state.config={};state.config.theme=id;saveState();if(!document.getElementById('page-config')?.classList.contains('hidden'))renderConfig();toast(`Thème "${THEMES.find(t=>t.id===id)?.name}" appliqué`,'success');}
-function handleChapFile(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});let added=0;json.forEach(row=>row.forEach(cell=>{const v=String(cell||'').trim();if(v&&!state.chapitres.includes(v)){state.chapitres.push(v);added++;}}));state.chapitres.sort();saveState();renderChapList();toast(`${added} chapitre(s) importé(s)`,'success');}catch(err){toast('Erreur lecture fichier','error');}};reader.readAsArrayBuffer(file);}
+function handleChapFile(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});let added=0;const newOnes=[];json.forEach(row=>row.forEach(cell=>{const v=String(cell||'').trim();if(v&&!state.chapitres.includes(v)){state.chapitres.push(v);newOnes.push(v);added++;}}));state.chapitres.sort();saveState();renderChapList();toast(`${added} chapitre(s) importé(s)`,'success');Promise.all(newOnes.map(v=>fbSaveChapitre(v))).then(results=>{const fails=results.filter(ok=>!ok).length;if(fails)toast(`⚠ ${fails} chapitre(s) importé(s) localement mais non synchronisés (Firebase) — vérifiez les droits d'accès`,'error');});}catch(err){toast('Erreur lecture fichier','error');}};reader.readAsArrayBuffer(file);}
 // ======== IMPORT EXCEL — RÉPARTITION DES ACTES ========
 function handleImportFileSelect(e){
   const f=e.target.files[0];impSelectedFile=f||null;
@@ -2263,8 +2318,8 @@ async function runExcelImport(){
   const lbl=document.getElementById('impFileLabel');if(lbl)lbl.textContent='📂 Sélectionner le fichier';
   const fi=document.getElementById('impFile');if(fi)fi.value='';
 }
-function addChap(){const v=document.getElementById('newChap').value.trim();if(!v)return;if(!state.chapitres.includes(v)){state.chapitres.push(v);state.chapitres.sort();saveState();renderChapList();document.getElementById('newChap').value='';toast(`Chapitre ${v} ajouté`,'success');}}
-function remChap(c){state.chapitres=state.chapitres.filter(x=>x!==c);saveState();renderChapList();}
+function addChap(){const v=document.getElementById('newChap').value.trim();if(!v)return;if(!state.chapitres.includes(v)){state.chapitres.push(v);state.chapitres.sort();saveState();renderChapList();document.getElementById('newChap').value='';toast(`Chapitre ${v} ajouté`,'success');fbSaveChapitre(v).then(ok=>{if(!ok)toast(`⚠ Chapitre ${v} ajouté localement mais pas synchronisé (Firebase) — vérifiez les droits d'accès`,'error');});}}
+function remChap(c){state.chapitres=state.chapitres.filter(x=>x!==c);saveState();renderChapList();fbDeleteChapitre(c).then(ok=>{if(!ok)toast(`⚠ Suppression locale seulement — échec de synchro Firebase pour ${c}`,'error');});}
 function renderChapList(){const el=document.getElementById('chapList');if(!el)return;el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${state.chapitres.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-family:var(--font-mono);font-size:12px">${escHtml(c)}<button onclick="remChap('${escHtml(c)}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0;font-size:15px;line-height:1;min-width:18px">×</button></span>`).join('')}</div>`;}
 function expData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='suivi_st_data.json';a.click();toast('Données exportées','success');}
 async function changeMyPassword(){
