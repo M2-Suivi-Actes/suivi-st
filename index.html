@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r5';
+  var APP_BUILD='2026-08-14-r6';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -1179,9 +1179,17 @@ async function doResetUserPwd(){
   if(state.attempts)state.attempts[u]=0;
   saveState();
   fbSaveMeta(u, {locked:false, attempts:0});
-  try{if(window._db)window._deleteDoc(window._doc(window._db,'auth',u));}catch(e){}
+  let synced=false;
+  try{
+    const db=getDB();
+    if(db){ await window._deleteDoc(window._doc(db,'auth',u)); synced=true; }
+  }catch(e){ console.error('FB pwd delete:', e); }
   document.getElementById('resetPwdModal').classList.add('hidden');
-  toast(`Mot de passe de ${u==='CHEF_BUREAU'?'CHEF DE BUREAU':u} réinitialisé. Il devra en créer un nouveau.`,'success');
+  if(synced){
+    toast(`Mot de passe de ${u==='CHEF_BUREAU'?'CHEF DE BUREAU':u} réinitialisé. Il devra en créer un nouveau.`,'success');
+  }else{
+    toast(`⚠ Réinitialisé localement seulement — la synchronisation Firebase a échoué. L'ancien mot de passe pourrait encore fonctionner sur d'autres appareils. Vérifiez les droits d'accès.`,'error');
+  }
 }
 
 function doLogout(expired=false){
@@ -1351,11 +1359,14 @@ async function fbLoadPasswords() {
   try {
     const db = getDB(); if (!db) return false;
     const snap = await window._getDocs(window._collection(db, 'auth'));
-    if (!state.passwords) state.passwords = {};
+    // Remplacement complet (pas fusion) : un mot de passe supprimé côté serveur doit aussi disparaître localement,
+    // sinon un ancien mot de passe réinitialisé continue de fonctionner sur les appareils qui l'ont encore en mémoire.
+    const freshPasswords = {};
     snap.forEach(doc => {
       const d = doc.data();
-      if (d.hash) state.passwords[doc.id] = d.hash;
+      if (d.hash) freshPasswords[doc.id] = d.hash;
     });
+    state.passwords = freshPasswords;
     const metaSnap = await window._getDocs(window._collection(db, 'auth_meta'));
     if (!state.locked) state.locked = {};
     if (!state.attempts) state.attempts = {};
