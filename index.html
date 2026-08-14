@@ -5,16 +5,35 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r1';
-  try{
-    var seen=localStorage.getItem('appBuild');
-    if(seen!==APP_BUILD){
-      localStorage.setItem('appBuild',APP_BUILD);
-      if(location.protocol.indexOf('http')===0 && !sessionStorage.getItem('appReloadedOnce')){
-        sessionStorage.setItem('appReloadedOnce','1');
-        location.replace(location.pathname+'?v='+Date.now());
-      }
+  var APP_BUILD='2026-08-14-r2';
+  var KEY='appBuild';
+  function forceReloadOnce(){
+    if(sessionStorage.getItem('appReloadedOnce'))return;
+    sessionStorage.setItem('appReloadedOnce','1');
+    if(location.protocol.indexOf('http')===0){
+      location.replace(location.pathname+'?v='+Date.now());
+    }else{
+      location.reload();
     }
+  }
+  try{
+    var seen=localStorage.getItem(KEY);
+    if(seen && seen!==APP_BUILD){
+      // Une version différente était mémorisée pour ce navigateur : page obsolète détectée au chargement
+      forceReloadOnce();
+    }
+    localStorage.setItem(KEY,APP_BUILD);
+    // Détection "à chaud" : si un autre onglet charge une version plus récente pendant que celui-ci reste ouvert
+    window.addEventListener('storage',function(e){
+      if(e.key===KEY && e.newValue && e.newValue!==APP_BUILD)forceReloadOnce();
+    });
+    // Retour depuis le cache navigateur (bouton précédent/suivant) : revalider la version en mémoire
+    window.addEventListener('pageshow',function(e){
+      if(e.persisted){
+        var seenNow=localStorage.getItem(KEY);
+        if(seenNow&&seenNow!==APP_BUILD)forceReloadOnce();
+      }
+    });
   }catch(e){}
 })();
 </script>
