@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r6';
+  var APP_BUILD='2026-08-14-r14';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -439,7 +439,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyAokVJd55k9VNPdlIbWXV_j9G3zAKdGzb0",
@@ -462,6 +462,8 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
     window._collection = collection;
     window._doc = doc;
     window._onSnapshot = onSnapshot;
+    window._query = query;
+    window._where = where;
     console.log('[Firebase] Connected to suivi-st-d52ce');
     document.dispatchEvent(new Event('firebase-ready'));
   } catch(e) {
@@ -729,7 +731,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
               <div class="search-box"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="listSearch" placeholder="ST, IM, Sigle..." oninput="filterList()"></div>
               <select class="fsel" id="filterEdition" onchange="filterList()"><option value="">Toutes éditions</option><option value="NORMALE">Normale</option><option value="SPECIALE">Spéciale</option></select>
               <select class="fsel" id="filterType" onchange="filterList()"><option value="">Tous types</option><option value="SGSP">SGSP</option><option value="SIGSOLDE">SIGSOLDE</option></select>
-              <select class="fsel" id="filterExploitation" onchange="filterList()"><option value="">Toutes exploitations</option></select>
+              <select class="fsel" id="filterExploitation" onchange="ensureExploitationLoaded(this.value);filterList()"><option value="">Toutes exploitations</option></select>
               <select class="fsel" id="filterSigle" onchange="filterList()"><option value="">Tous sigles</option></select>
               <select class="fsel" id="filterResp" onchange="filterList()"><option value="">Tous resp.</option><option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option><option value="D4">D4</option><option value="D5">D5</option><option value="D6">D6</option><option value="D7">D7</option><option value="D8">D8</option><option value="VONJY">VONJY</option><option value="????">Non assigné</option></select>
             </div>
@@ -762,7 +764,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
             <div class="fg"><label class="fl">Comptable <span class="req">*</span></label><select id="rp1User" class="fs"></select></div>
             <div class="fg"><label class="fl">Édition <span class="req">*</span></label><select id="rp1Edition" class="fs" onchange="updateRpPeriodes('rp1')"><option value="">—</option><option value="NORMALE">Normale</option><option value="SPECIALE">Spéciale</option></select></div>
             <div class="fg"><label class="fl">Type <span class="req" style="font-weight:400;color:var(--text3)">(optionnel)</span></label><select id="rp1Type" class="fs" onchange="updateRpPeriodes('rp1')"><option value="">Tous</option><option value="SGSP">SGSP</option><option value="SIGSOLDE">SIGSOLDE</option></select></div>
-            <div class="fg"><label class="fl">Période <span class="req">*</span></label><select id="rp1Periode" class="fs"><option value="">—</option></select></div>
+            <div class="fg"><label class="fl">Période <span class="req">*</span></label><select id="rp1Periode" class="fs" onchange="onRpPeriodeChange('rp1')"><option value="">—</option></select></div>
           </div>
           <div class="fa"><button class="btn bp" onclick="exportRapport1()">⬇ Exporter Excel</button></div>
         </div>
@@ -770,7 +772,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
           <div class="form-grid" style="max-width:500px">
             <div class="fg"><label class="fl">Édition <span class="req">*</span></label><select id="rp2Edition" class="fs" onchange="updateRp2Periodes()"><option value="">—</option><option value="NORMALE">Normale</option><option value="SPECIALE">Spéciale</option></select></div>
             <div class="fg"><label class="fl">Type <span class="req" style="font-weight:400;color:var(--text3)">(optionnel)</span></label><select id="rp2Type" class="fs" onchange="updateRp2Periodes()"><option value="">Tous</option><option value="SGSP">SGSP</option><option value="SIGSOLDE">SIGSOLDE</option></select></div>
-            <div class="fg"><label class="fl">Période <span class="req">*</span></label><select id="rp2Periode" class="fs" onchange="updateRapport2Preview()"><option value="">—</option></select></div>
+            <div class="fg"><label class="fl">Période <span class="req">*</span></label><select id="rp2Periode" class="fs" onchange="onRpPeriodeChange('rp2');updateRapport2Preview()"><option value="">—</option></select></div>
           </div>
           <div id="rp2Preview" style="margin-top:16px"></div>
           <div class="fa"><button class="btn bp" onclick="exportRapport2()">⬇ Exporter Excel</button></div>
@@ -880,6 +882,15 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 <!-- MODAL DETAIL -->
 <div id="detailModal" class="modal-bg hidden">
   <div class="modal msm"><div class="mh"><div class="mt2" id="detailTitle">Détail ST</div><button class="mc" onclick="closeDetail()">✕</button></div><div class="mb3" id="detailBody"></div><div class="mf" id="detailFooter"></div></div>
+</div>
+
+<!-- MODAL AVERTISSEMENT DOUBLON D'ACTE -->
+<div id="acteDupModal" class="modal-bg hidden">
+  <div class="modal mxs">
+    <div class="mh"><div class="mt2" style="color:var(--orange)">⚠ Mouvement(s) déjà saisi(s) cette année</div><button class="mc" onclick="closeActeDupModal()">✕</button></div>
+    <div class="mb3"><div id="acteDupList" style="font-size:13px;color:var(--text2)"></div></div>
+    <div class="mf"><button class="btn bs" onclick="closeActeDupModal()">Corriger</button><button class="btn bp" id="acteDupOkBtn">Enregistrer quand même</button></div>
+  </div>
 </div>
 
 <!-- MODAL CONFIRM DELETE -->
@@ -1013,7 +1024,7 @@ async function doLogin(){
   }
   if(window._fbReady) {
     al.innerHTML='<div class="alert ai2" style="font-size:12px">⏳ Vérification en cours...</div>';
-    await fbLoadPasswords();
+    await fbLoadUserPassword(u);
     al.innerHTML='';
   }
   if(state.locked&&state.locked[u]){
@@ -1056,7 +1067,7 @@ async function doLogin(){
 function loginSuccess(u){
   preloadData();
   cu={name:u,role:u==='CHEF_BUREAU'?'chef':'comptable',sheet:u==='CHEF_BUREAU'?null:u};
-  dashF={exploitation:null,edition:null,stat:'mine',comptable:null,type:null};
+  dashF={exploitation:getEffectiveExploitation(),edition:null,stat:'mine',comptable:null,type:null};
   listeSheet=cu.role==='chef'?'ALL':(cu.sheet||'ALL');
   applyMaintenanceUI();
   applyTheme(state.config?.theme||'gold');
@@ -1070,13 +1081,15 @@ function loginSuccess(u){
   if(cu.role==='chef')document.getElementById('nav-bureau-section').classList.remove('hidden');
   updateOdBar();startSession();
   if(window._fbReady){
-    fbLoadAll().then(ok=>{
-      if(ok){toast('✓ Données chargées depuis Firebase','success');renderDash();}
+    fbLoadStartup().then(ok=>{
+      if(ok){toast('✓ Données chargées depuis la base de données','success');renderDash();}
       startRealtimeSync();
     });
+    checkBackupReminder();
   } else {
     document.addEventListener('firebase-ready',()=>{
-      fbLoadAll().then(ok=>{if(ok){toast('✓ Firebase connecté','success');renderDash();}startRealtimeSync();});
+      fbLoadStartup().then(ok=>{if(ok){toast('✓ Base de données connectée','success');renderDash();}startRealtimeSync();});
+      checkBackupReminder();
     },{once:true});
   }
   showPage('dashboard');
@@ -1126,13 +1139,14 @@ function generateRecoveryCode(){
   },500);
 }
 
-function showForgotAdmin(){
+async function showForgotAdmin(){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('forgotAdminScreen').classList.remove('hidden');
   document.getElementById('forgotAdminAlert').innerHTML='';
   document.getElementById('recoveryCode').value='';
   document.getElementById('recoveryNewPwd').value='';
   document.getElementById('recoveryNewPwd2').value='';
+  if(window._fbReady && !state.recoveryCode) await fbLoadRecoveryCode();
 }
 
 async function doRecovery(){
@@ -1188,13 +1202,14 @@ async function doResetUserPwd(){
   if(synced){
     toast(`Mot de passe de ${u==='CHEF_BUREAU'?'CHEF DE BUREAU':u} réinitialisé. Il devra en créer un nouveau.`,'success');
   }else{
-    toast(`⚠ Réinitialisé localement seulement — la synchronisation Firebase a échoué. L'ancien mot de passe pourrait encore fonctionner sur d'autres appareils. Vérifiez les droits d'accès.`,'error');
+    toast(`⚠ Réinitialisé localement seulement — la synchronisation a échoué. L'ancien mot de passe pourrait encore fonctionner sur d'autres appareils. Vérifiez les droits d'accès.`,'error');
   }
 }
 
 function doLogout(expired=false){
   stopRealtimeSync();
   stopSession();cu=null;editEntry=null;
+  listeExploitInitDone=false;
   applyMaintenanceUI();
   document.getElementById('appScreen').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
@@ -1280,7 +1295,7 @@ function stableEntryId(sh,r){
   if(r&&r.numero_st!=null&&r.numero_st!=='')return `${sh}_${r.numero_st}`;
   return `${sh}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
 }
-function updateOdBar(){const el=document.getElementById('odStatusBar');if(!el)return;const fbOk=window._fbReady;el.innerHTML=fbOk?'<span class="ods odc"><span class="dot"></span>Firebase connecté ✓</span>':'<span class="ods odp"><span class="dot"></span>Firebase en cours...</span>';}
+function updateOdBar(){const el=document.getElementById('odStatusBar');if(!el)return;const fbOk=window._fbReady;el.innerHTML=fbOk?'<span class="ods odc"><span class="dot"></span>Base de données connectée ✓</span>':'<span class="ods odp"><span class="dot"></span>Connexion en cours...</span>';}
 // ======== FIREBASE FIRESTORE SYNC ========
 function getDB() { return window._db; }
 async function fbSaveEntry(sheetName, entry) {
@@ -1314,6 +1329,13 @@ async function fbSaveCesp(cespRow) {
     return true;
   } catch(e) { console.error('FB cesp:', e); return false; }
 }
+async function touchVersion(name) {
+  try {
+    const db = getDB(); if (!db) return false;
+    await window._setDoc(window._doc(db, 'meta', `${name}_version`), { updatedAt: new Date().toISOString() });
+    return true;
+  } catch(e) { console.error('FB touchVersion:', e); return false; }
+}
 async function fbSaveChapitre(code) {
   try {
     const db = getDB(); if (!db) return false;
@@ -1339,11 +1361,75 @@ async function fbLoadChapitres() {
     snap.forEach(doc => remote.add(doc.id));
     // Complète Firebase avec tout chapitre connu (par défaut dans le code ou déjà ajouté localement) mais absent côté serveur
     const toPush = [...new Set([...CHAP_DEF, ...(state.chapitres||[])])].filter(c => !remote.has(c));
-    for (const code of toPush) { const ok = await fbSaveChapitre(code); if (ok) remote.add(code); }
+    let pushedCount = 0;
+    for (const code of toPush) { const ok = await fbSaveChapitre(code); if (ok) { remote.add(code); pushedCount++; } }
+    if (pushedCount) touchVersion('chapitres');
     state.chapitres = [...remote].sort();
     saveState();
     return true;
   } catch(e) { console.error('FB chap load:', e); return false; }
+}
+async function fbLoadCesp() {
+  try {
+    const db = getDB(); if (!db) return false;
+    const snap = await window._getDocs(window._collection(db, 'cesp'));
+    const newCesp = [];
+    snap.forEach(doc => { const row = {...doc.data()}; delete row._updatedAt; newCesp.push(row); });
+    state.cesp = newCesp;
+    saveState();
+    return true;
+  } catch(e) { console.error('FB cesp load:', e); return false; }
+}
+async function checkAndSyncChapitres(remoteVersion) {
+  if (remoteVersion && state._chapVersion === remoteVersion) return; // rien de changé, pas de rechargement
+  await fbLoadChapitres();
+  state._chapVersion = remoteVersion || new Date().toISOString();
+  saveState();
+  renderChapList();
+  refreshCurrentPage();
+}
+async function checkAndSyncCesp(remoteVersion) {
+  if (remoteVersion && state._cespVersion === remoteVersion) return; // rien de changé, pas de rechargement
+  await fbLoadCesp();
+  state._cespVersion = remoteVersion || new Date().toISOString();
+  saveState();
+  refreshCurrentPage();
+}
+async function fbLoadUserPassword(username) {
+  try {
+    const db = getDB(); if (!db) return false;
+    if (!state.passwords) state.passwords = {};
+    if (!state.locked) state.locked = {};
+    if (!state.attempts) state.attempts = {};
+    const snap = await window._getDoc(window._doc(db, 'auth', username));
+    if (snap.exists()) {
+      const d = snap.data();
+      if (d.hash) state.passwords[username] = d.hash;
+    } else {
+      // Fiche absente côté serveur (ex: mot de passe réinitialisé par le Chef) : on nettoie aussi en local,
+      // sinon l'ancien mot de passe continue de fonctionner tant que le cache n'est pas vidé manuellement.
+      delete state.passwords[username];
+    }
+    const metaSnap = await window._getDoc(window._doc(db, 'auth_meta', username));
+    if (metaSnap.exists()) {
+      const d = metaSnap.data();
+      state.locked[username] = d.locked !== undefined ? d.locked : false;
+      state.attempts[username] = d.attempts !== undefined ? d.attempts : 0;
+    } else {
+      state.locked[username] = false;
+      state.attempts[username] = 0;
+    }
+    saveState();
+    return true;
+  } catch(e) { console.error('FB pwd load (user):', e); return false; }
+}
+async function fbLoadRecoveryCode() {
+  try {
+    const db = getDB(); if (!db) return false;
+    const rcDoc = await window._getDoc(window._doc(db, 'auth_meta', 'recovery'));
+    if (rcDoc.exists()) { state.recoveryCode = rcDoc.data().code; saveState(); }
+    return true;
+  } catch(e) { console.error('FB recovery load:', e); return false; }
 }
 async function fbSavePassword(username, hash) {
   try {
@@ -1430,7 +1516,7 @@ function applyMaintenanceUI(){
 }
 async function activateMaintenance(){
   if(!cu||cu.role!=='chef')return;
-  const db=getDB(); if(!db){toast('Firebase non disponible','error');return;}
+  const db=getDB(); if(!db){toast('Base de données non disponible','error');return;}
   const msg=(document.getElementById('maintMsgInput')?.value||'').trim()||DEFAULT_MAINT_MSG;
   try{
     await window._setDoc(window._doc(db,'system','maintenance'),{active:true,message:msg,updatedBy:cu.name,updatedAt:new Date().toISOString()});
@@ -1439,15 +1525,61 @@ async function activateMaintenance(){
 }
 async function deactivateMaintenance(){
   if(!cu||cu.role!=='chef')return;
-  const db=getDB(); if(!db){toast('Firebase non disponible','error');return;}
+  const db=getDB(); if(!db){toast('Base de données non disponible','error');return;}
   try{
     await window._setDoc(window._doc(db,'system','maintenance'),{active:false,message:'',updatedBy:cu.name,updatedAt:new Date().toISOString()});
     toast('✅ Application remise en ligne','success');
   }catch(e){toast('Erreur: '+e.message,'error');}
 }
 let _unsubEntries=null,_unsubCesp=null,_unsubChapitres=null;
+let currentLiveExploitation=null;
+const loadedExploitations=new Set();
+function getEffectiveExploitation(){
+  if(state.lastExploitation) return state.lastExploitation;
+  const m=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const n=new Date();
+  return `${m[n.getMonth()]} ${n.getFullYear()}`;
+}
+function mergeEntriesForExploitation(exploitationValue, docsArray){
+  // Retire les anciennes entrées de ce mois (elles vont être remplacées par la version fraîche), sans toucher aux autres mois déjà en mémoire
+  for(const sheetName of Object.keys(state.sheets)){
+    state.sheets[sheetName]=state.sheets[sheetName].filter(e=>e.exploitation!==exploitationValue);
+  }
+  docsArray.forEach(d=>{
+    const sh=d._sheet;
+    if(state.sheets[sh]){ const entry={...d}; delete entry._sheet; delete entry._updatedAt; state.sheets[sh].push(entry); }
+  });
+}
+let allEntriesLoadedThisSession=false;
+async function ensureExploitationLoaded(value){
+  const db=getDB(); if(!db) return;
+  if(!value){
+    if(allEntriesLoadedThisSession) return;
+    toast("Chargement de tout l'historique...","success");
+    try{
+      const snap=await window._getDocs(window._collection(db,'entries'));
+      const newSheets={VICKY:[],ROSA:[],MIHANTA:[],FANILO:[],TIANA:[],CHEF_BUREAU:[]};
+      snap.forEach(doc=>{
+        const d=doc.data(); const sh=d._sheet;
+        if(newSheets[sh]){ const entry={...d}; delete entry._sheet; delete entry._updatedAt; newSheets[sh].push(entry); loadedExploitations.add(entry.exploitation); }
+      });
+      state.sheets=newSheets; allEntriesLoadedThisSession=true;
+      saveState(); refreshCurrentPage();
+    }catch(e){ console.error('FB load all entries:', e); toast("Erreur lors du chargement de l'historique",'error'); }
+    return;
+  }
+  if(loadedExploitations.has(value)) return;
+  try{
+    const q=window._query(window._collection(db,'entries'), window._where('exploitation','==',value));
+    const snap=await window._getDocs(q);
+    const docsArr=[]; snap.forEach(doc=>docsArr.push(doc.data()));
+    mergeEntriesForExploitation(value, docsArr);
+    loadedExploitations.add(value);
+    saveState(); refreshCurrentPage();
+  }catch(e){ console.error('FB load exploitation:', e); toast(`Erreur de chargement pour ${value}`,'error'); }
+}
 function anyModalOpen(){
-  return ['choixTypeModal','saisieModal','detailModal','confirmModal','resetPwdModal'].some(id=>{
+  return ['choixTypeModal','saisieModal','detailModal','confirmModal','resetPwdModal','acteDupModal'].some(id=>{
     const el=document.getElementById(id);return el && !el.classList.contains('hidden');
   });
 }
@@ -1466,30 +1598,35 @@ function startRealtimeSync(){
   if(_unsubEntries) _unsubEntries();
   if(_unsubCesp) _unsubCesp();
   if(_unsubChapitres) _unsubChapitres();
-  _unsubEntries = window._onSnapshot(window._collection(db,'entries'), snap=>{
-    const newSheets={VICKY:[],ROSA:[],MIHANTA:[],FANILO:[],TIANA:[],CHEF_BUREAU:[]};
-    snap.forEach(doc=>{
-      const d=doc.data(); const sh=d._sheet;
-      if(newSheets[sh]){ const entry={...d}; delete entry._sheet; delete entry._updatedAt; newSheets[sh].push(entry); }
-    });
-    state.sheets=newSheets; saveState(); refreshCurrentPage();
+  currentLiveExploitation=getEffectiveExploitation();
+  loadedExploitations.add(currentLiveExploitation);
+  const entriesQuery=window._query(window._collection(db,'entries'), window._where('exploitation','==',currentLiveExploitation));
+  _unsubEntries = window._onSnapshot(entriesQuery, snap=>{
+    const docsArr=[];
+    snap.forEach(doc=>docsArr.push(doc.data()));
+    mergeEntriesForExploitation(currentLiveExploitation, docsArr);
+    saveState(); refreshCurrentPage();
   }, e=>console.error('[Firebase] onSnapshot entries:', e));
-  _unsubCesp = window._onSnapshot(window._collection(db,'cesp'), snap=>{
-    const newCesp=[];
-    snap.forEach(doc=>{ const row={...doc.data()}; delete row._updatedAt; newCesp.push(row); });
-    state.cesp=newCesp; saveState(); refreshCurrentPage();
-  }, e=>console.error('[Firebase] onSnapshot cesp:', e));
-  _unsubChapitres = window._onSnapshot(window._collection(db,'chapitres'), snap=>{
-    const list=[]; snap.forEach(doc=>list.push(doc.id));
-    state.chapitres=list.sort(); saveState();
-    renderChapList(); refreshCurrentPage();
-  }, e=>console.error('[Firebase] onSnapshot chapitres:', e));
+  _unsubCesp = window._onSnapshot(window._doc(db,'meta','cesp_version'), snap=>{
+    const v = snap.exists() ? snap.data().updatedAt : null;
+    checkAndSyncCesp(v);
+  }, e=>console.error('[Firebase] onSnapshot cesp_version:', e));
+  _unsubChapitres = window._onSnapshot(window._doc(db,'meta','chapitres_version'), snap=>{
+    const v = snap.exists() ? snap.data().updatedAt : null;
+    checkAndSyncChapitres(v);
+  }, e=>console.error('[Firebase] onSnapshot chapitres_version:', e));
   return true;
 }
 function stopRealtimeSync(){
   if(_unsubEntries){_unsubEntries();_unsubEntries=null;}
   if(_unsubCesp){_unsubCesp();_unsubCesp=null;}
   if(_unsubChapitres){_unsubChapitres();_unsubChapitres=null;}
+}
+async function fbLoadStartup() {
+  // CESP et chapitres sont désormais gérés par les listeners légers (mini-fiche témoin) démarrés
+  // juste après dans startRealtimeSync() — ils ne rechargent les données complètes que si elles ont
+  // réellement changé depuis la dernière visite de cet utilisateur. Rien à précharger ici.
+  return true;
 }
 async function fbLoadAll() {
   try {
@@ -1506,6 +1643,8 @@ async function fbLoadAll() {
       }
     });
     state.sheets = newSheets;
+    allEntriesLoadedThisSession = true;
+    entriesSnap.forEach(doc => { const ex=doc.data().exploitation; if(ex) loadedExploitations.add(ex); });
     const cespSnap = await window._getDocs(window._collection(db, 'cesp'));
     const newCesp = [];
     cespSnap.forEach(doc => {
@@ -1530,8 +1669,100 @@ async function fbDeleteSync(sheetName, numeroST) {
   if (ok) showSyncBadge(true);
   else showSyncBadge(false);
 }
+async function fbGetLastBackupDate(){
+  try{
+    const db=getDB(); if(!db) return null;
+    const snap=await window._getDoc(window._doc(db,'meta','backup_info'));
+    return snap.exists()?snap.data().lastBackupAt:null;
+  }catch(e){ console.error('FB get backup date:', e); return null; }
+}
+async function fbSetLastBackupDate(iso){
+  try{
+    const db=getDB(); if(!db) return false;
+    await window._setDoc(window._doc(db,'meta','backup_info'), {lastBackupAt:iso});
+    return true;
+  }catch(e){ console.error('FB set backup date:', e); return false; }
+}
+function backupIsDue(lastIso){
+  if(!lastIso) return true;
+  const last=new Date(lastIso);
+  const limit=new Date();
+  limit.setMonth(limit.getMonth()-3);
+  return last<limit;
+}
+async function checkBackupReminder(){
+  if(!cu||cu.role!=='chef'||!window._fbReady) return;
+  const last=await fbGetLastBackupDate();
+  state.config=state.config||{};
+  state.config.lastBackupAt=last;
+  saveState();
+  if(backupIsDue(last)){
+    const msg=last?`⏰ Dernière sauvegarde le ${new Date(last).toLocaleDateString('fr-FR')} — plus de 3 mois. Pensez à faire un backup (Config).`:'⏰ Aucune sauvegarde effectuée pour le moment. Pensez à en faire une (Config).';
+    toast(msg,'error');
+  }
+}
+async function generateGlobalBackup(){
+  if(!window._fbReady){toast('Base de données non disponible','error');return;}
+  const db=getDB(); if(!db) return;
+  toast('Préparation de la sauvegarde complète...','success');
+  try{
+    const snap=await window._getDocs(window._collection(db,'entries'));
+    const rows=[];
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const comptable=d._sheet==='CHEF_BUREAU'?'Chef de Bureau':(d._sheet||'');
+      const actes=(d.actes&&d.actes.length)?d.actes:[{mvt:'',chapitre:''}];
+      actes.forEach(a=>{
+        rows.push([comptable,d.exploitation||'',d.edition||'',d.numero_st??'',d.sigle||'',d.paquet||'',a.mvt||'',a.chapitre||'']);
+      });
+    });
+    const headers=['Comptable','Exploitation','Édition','Numéro ST','Sigle','Paquet','MVT','Chapitre'];
+    const esc=v=>String(v??'').replace(/\t/g,' ').replace(/[\r\n]/g,' ');
+    const lines=[headers.join('\t'), ...rows.map(r=>r.map(esc).join('\t'))];
+    const content='\ufeff'+lines.join('\r\n'); // BOM pour un affichage correct des accents dans Excel
+    const today=new Date();
+    const dateStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    const filename=`Backup_donnees_M2_${dateStr}.txt`;
+    const blob=new Blob([content],{type:'text/plain;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+    const nowIso=new Date().toISOString();
+    state.config=state.config||{};state.config.lastBackupAt=nowIso;saveState();
+    fbSetLastBackupDate(nowIso);
+    toast(`✓ Sauvegarde générée : ${rows.length} ligne(s) — ${filename}`,'success');
+  }catch(e){ console.error('Backup error:', e); toast('Erreur lors de la génération de la sauvegarde','error'); }
+}
+async function buildActeIndexFromScratch(){
+  if(!window._fbReady){toast('Base de données non disponible','error');return;}
+  const db=getDB(); if(!db) return;
+  toast("Construction de l'index anti-doublons à partir de l'historique complet...",'success');
+  try{
+    const snap=await window._getDocs(window._collection(db,'entries'));
+    const docs=[]; snap.forEach(doc=>docs.push(doc.data()));
+    const tasks=[];
+    docs.forEach(d=>{
+      const year=extractYear(d.exploitation);
+      (d.actes||[]).forEach(a=>{
+        tasks.push(()=>fbSaveActeIndex(a.im,a.mvt,a.chapitre||'',year,{
+          entryId:d._id, sh:d._sheet, sigle:d.sigle, paquet:d.paquet,
+          exploitation:d.exploitation, edition:d.edition, createdBy:d.createdBy, numero_st:d.numero_st
+        }));
+      });
+    });
+    // Écritures groupées par lots pour ne pas surcharger la connexion, sans bloquer indéfiniment l'interface
+    const CHUNK=25; let done=0;
+    for(let i=0;i<tasks.length;i+=CHUNK){
+      await Promise.all(tasks.slice(i,i+CHUNK).map(fn=>fn()));
+      done=Math.min(i+CHUNK,tasks.length);
+    }
+    toast(`✓ Index construit : ${done} acte(s) indexé(s) sur ${docs.length} entrée(s)`,'success');
+  }catch(e){ console.error('Build acte index:', e); toast("Erreur lors de la construction de l'index",'error'); }
+}
 async function syncAllToFirebase(){
-  if(!window._fbReady){toast('Firebase non disponible','error');return;}
+  if(!window._fbReady){toast('Base de données non disponible','error');return;}
+  // S'assure d'abord que tout l'historique est bien en mémoire localement (pas seulement le mois en cours),
+  // sinon "synchronisation complète" ne le serait plus qu'en apparence.
+  toast("Chargement de l'historique complet avant synchronisation...",'success');
+  await ensureExploitationLoaded('');
   toast('Synchronisation en cours...','success');
   let count=0;
   for(const[sh,rows] of Object.entries(state.sheets)){
@@ -1540,7 +1771,7 @@ async function syncAllToFirebase(){
     }
   }
   for(const row of state.cesp||[]){await fbSaveCesp(row);}
-  toast(`✓ ${count} entrées synchronisées vers Firebase`,'success');
+  toast(`✓ ${count} entrées synchronisées`,'success');
   showSyncBadge(true);
 }
 // Legacy gsCall compatibility
@@ -1554,7 +1785,7 @@ function entryToRows(entry){
 }
 function showSyncBadge(ok){ if(!ok) return updateOdBar(); 
   const el=document.getElementById('odStatusBar');if(!el)return;
-  el.innerHTML=ok?'<span class="ods odc"><span class="dot"></span>Firebase synchronisé ✓</span>':'<span class="ods odd"><span class="dot"></span>Erreur sync</span>';
+  el.innerHTML=ok?'<span class="ods odc"><span class="dot"></span>Synchronisation réussie ✓</span>':'<span class="ods odd"><span class="dot"></span>Erreur sync</span>';
   setTimeout(updateOdBar,ok?3000:5000);
 }
 async function gsSync(fn){if(!state.config?.gsUrl||!state.config?.gsConnected)return;try{const r=await fn();showSyncBadge(r&&r.status==='ok');}catch(e){showSyncBadge(false);}}
@@ -1566,7 +1797,7 @@ async function gsDeleteEntry(sh,nst){return await gsCall('POST',{action:'delete_
 function renderDash(){
   const dn=cu.name==='CHEF_BUREAU'?'CHEF DE BUREAU':cu.name;
   document.getElementById('dashUserLabel').textContent=dn;updateOdBar();
-  const exps=exploits();
+  const exps=getPeriodes();
   const dsel=document.getElementById('dashExploitSelect');
   if(dsel){dsel.innerHTML='<option value="">Toutes périodes</option>'+exps.map(e=>`<option value="${escHtml(e)}" ${dashF.exploitation===e?'selected':''}>${escHtml(e)}</option>`).join('');if(!dashF.exploitation)dsel.value='';}
   const isC=cu.role==='chef';
@@ -1611,7 +1842,7 @@ function renderDash(){
     <div class="stat-card sp ${dashF.stat==='mine'?'af':''}" onclick="setDashStat('mine')"><div class="stat-label">${isC?'Total':'Mes entrées'}</div><div class="stat-value">${mineCount}</div><div class="stat-sub">${isC?'Tous':'Mes créations'}</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir</div></div>`;
   renderDashTable(base);
 }
-function setDashExploit(v){dashF.exploitation=v||null;dashF.stat=null;renderDash();}
+function setDashExploit(v){dashF.exploitation=v||null;dashF.stat=null;ensureExploitationLoaded(v||'');renderDash();}
 function toggleDashEdition(e){dashF.edition=dashF.edition===e?null:e;dashF.stat=null;renderDash();}
 function toggleDashType(t){dashF.type=dashF.type===t?null:t;dashF.stat=null;renderDash();}
 function toggleDashCpt(c){dashF.comptable=(c==='Tous'||dashF.comptable===c)?null:c;dashF.stat=null;renderDash();}
@@ -1643,6 +1874,7 @@ function renderDashTable(base){
     </td>
   </tr>`).join('')}</tbody></table>`;
 }
+let listeExploitInitDone=false;
 // ======== LISTE ========
 function renderListe(){
   // Tous les utilisateurs voient tous les onglets
@@ -1651,9 +1883,12 @@ function renderListe(){
   document.getElementById('listeSheetTabs').innerHTML=sheets.map(s=>`<div class="tab ${listeSheet===s?'active':''}" onclick="setListeSheet('${s}')">${s==='ALL'?'Toutes':s==='CHEF_BUREAU'?'Chef':s}</div>`).join('');
   const ad=allData();
   const sigles=[...new Set(ad.map(r=>r.sigle))].filter(Boolean).sort();
-  const exps=[...new Set(ad.map(r=>r.exploitation))].filter(Boolean).sort();
+  const exps=getPeriodes();
   const fs=document.getElementById('filterSigle'),fe=document.getElementById('filterExploitation');
-  const cs=fs.value,ce=fe.value;
+  const cs=fs.value;
+  let ce;
+  if(!listeExploitInitDone){ ce=getEffectiveExploitation(); listeExploitInitDone=true; if(ce)ensureExploitationLoaded(ce); }
+  else { ce=fe.value; }
   fs.innerHTML='<option value="">Tous sigles</option>'+sigles.map(s=>`<option value="${escHtml(s)}"${s===cs?' selected':''}>${escHtml(s)}</option>`).join('');
   fe.innerHTML='<option value="">Toutes exploitations</option>'+exps.map(e=>`<option value="${escHtml(e)}"${e===ce?' selected':''}>${escHtml(e)}</option>`).join('');
   filterList();
@@ -1739,7 +1974,7 @@ async function doBulkDelete(){
     saveState();
     if(window._fbReady&&getDB()){
       const success=await fbDeleteEntry(sh,eid);
-      if(success)ok++;
+      if(success){ok++;removeActeIndexForEntry(removed);}
       else{if(removed&&!state.sheets[sh].some(x=>rowEid(x)===eid)){state.sheets[sh].push(removed);saveState();}fail++;}
     } else ok++;
   }
@@ -1747,7 +1982,7 @@ async function doBulkDelete(){
   filterList();
   const ap=PAGES.find(p=>!document.getElementById('page-'+p)?.classList.contains('hidden'));
   if(ap==='dashboard')renderDash();
-  toast(`${ok} acte(s) supprimé(s)${fail?`, ${fail} échec(s) (droits Firebase ?)`:''}`, fail?'error':'success');
+  toast(`${ok} acte(s) supprimé(s)${fail?`, ${fail} échec(s) (droits d'accès ?)`:''}`, fail?'error':'success');
 }
 function setLP(p){listPage=p;renderListTable();}
 // ======== DETAIL ========
@@ -1814,14 +2049,15 @@ async function doDel(r){
     showSyncBadge(ok);
     if(ok){
       toast(`ST ${nst||'—'} supprimé`,'success');
+      removeActeIndexForEntry(removed);
     } else {
       // Échec réel côté Firebase : on restaure l'entrée localement pour rester cohérent
       if(removed && !state.sheets[sh].some(x=>(x._id||stableEntryId(sh,x))===eid)){state.sheets[sh].push(removed);saveState();}
-      toast(`⚠ Échec de la suppression côté serveur (ST ${nst||'—'}). Vérifiez votre connexion ou les droits Firebase, puis réessayez.`,'error');
+      toast(`⚠ Échec de la suppression côté serveur (ST ${nst||'—'}). Vérifiez votre connexion ou les droits d'accès, puis réessayez.`,'error');
       if(ap==='dashboard')renderDash();if(ap==='liste')filterList();if(ap==='recherche')doSearch();
     }
   } else {
-    toast(`ST ${nst||'—'} supprimé (local — Firebase indisponible)`,'success');
+    toast(`ST ${nst||'—'} supprimé (local — base de données indisponible)`,'success');
   }
 }
 function closeConfirm(){document.getElementById('confirmModal').classList.add('hidden');confirmCb=null;}
@@ -1974,7 +2210,10 @@ function addActeRow(){
 }
 function remActeRow(i){acteRows.splice(i,1);renderActesRows();}
 function showErrorModal(errs){
-  document.getElementById('errorModalList').innerHTML=errs.map(e=>`<div style="color:var(--red)">• ${escHtml(e)}</div>`).join('');
+  document.getElementById('errorModalList').innerHTML=errs.map(e=>{
+    const html=(e&&typeof e==='object'&&e.html)?e.html:escHtml(e);
+    return `<div style="color:var(--red)">• ${html}</div>`;
+  }).join('');
   document.getElementById('errorModal').classList.remove('hidden');
 }
 function closeErrorModal(){document.getElementById('errorModal').classList.add('hidden');}
@@ -1986,8 +2225,99 @@ function registerNewChapitresFromActes(actes){
   });
   if(news.length){
     state.chapitres.sort(); saveState(); renderChapList();
-    news.forEach(c=>fbSaveChapitre(c).then(ok=>{if(!ok)toast(`⚠ Chapitre ${c} ajouté localement mais pas synchronisé (Firebase) — vérifiez les droits d'accès`,'error');}));
+    Promise.all(news.map(c=>fbSaveChapitre(c).then(ok=>{if(!ok)toast(`⚠ Chapitre ${c} ajouté localement mais pas synchronisé (base de données) — vérifiez les droits d'accès`,'error');return ok;}))).then(results=>{if(results.some(ok=>ok))touchVersion('chapitres');});
   }
+}
+function extractYear(exploitation){
+  const m=/(\d{4})/.exec(exploitation||'');
+  return m?m[1]:'';
+}
+function acteIndexKey(im,mvt,chapitre,year){
+  const clean=s=>String(s||'').trim().replace(/[\/\\.#$\[\]]/g,'_');
+  return `${clean(im)}_${clean(mvt)}_${clean(chapitre)||'NONE'}_${clean(year)||'NA'}`;
+}
+async function fbCheckActeIndex(im,mvt,chapitre,year){
+  try{
+    const db=getDB(); if(!db) return null;
+    const snap=await window._getDoc(window._doc(db,'actes_index',acteIndexKey(im,mvt,chapitre,year)));
+    return snap.exists()?snap.data():null;
+  }catch(e){ console.error('FB acte index check:', e); return null; }
+}
+async function fbSaveActeIndex(im,mvt,chapitre,year,info){
+  try{
+    const db=getDB(); if(!db) return false;
+    await window._setDoc(window._doc(db,'actes_index',acteIndexKey(im,mvt,chapitre,year)), {...info, updatedAt:new Date().toISOString()});
+    return true;
+  }catch(e){ console.error('FB acte index save:', e); return false; }
+}
+async function fbDeleteActeIndex(im,mvt,chapitre,year){
+  try{
+    const db=getDB(); if(!db) return false;
+    await window._deleteDoc(window._doc(db,'actes_index',acteIndexKey(im,mvt,chapitre,year)));
+    return true;
+  }catch(e){ console.error('FB acte index delete:', e); return false; }
+}
+async function syncActeIndex(oldEntry, newEntry, sh){
+  if(!window._fbReady) return;
+  const oldYear=oldEntry?extractYear(oldEntry.exploitation):null;
+  const newYear=extractYear(newEntry.exploitation);
+  const oldActes=oldEntry?(oldEntry.actes||[]):[];
+  const newActes=newEntry.actes||[];
+  if(oldEntry){
+    for(const a of oldActes){
+      const stillPresent=oldYear===newYear&&newActes.some(b=>b.im===a.im&&b.mvt===a.mvt&&(b.chapitre||'')===(a.chapitre||''));
+      if(!stillPresent) fbDeleteActeIndex(a.im,a.mvt,a.chapitre||'',oldYear);
+    }
+  }
+  for(const a of newActes){
+    fbSaveActeIndex(a.im,a.mvt,a.chapitre||'',newYear,{
+      entryId:newEntry._id, sh, sigle:newEntry.sigle, paquet:newEntry.paquet,
+      exploitation:newEntry.exploitation, edition:newEntry.edition,
+      createdBy:newEntry.createdBy, numero_st:newEntry.numero_st
+    });
+  }
+}
+async function removeActeIndexForEntry(entry){
+  if(!window._fbReady||!entry) return;
+  const year=extractYear(entry.exploitation);
+  for(const a of (entry.actes||[])){ fbDeleteActeIndex(a.im,a.mvt,a.chapitre||'',year); }
+}
+async function showEntryById(entryId, sh){
+  let entry=(state.sheets[sh]||[]).find(e=>e._id===entryId);
+  if(!entry){
+    try{
+      const db=getDB();
+      if(db){
+        const snap=await window._getDoc(window._doc(db,'entries',entryId));
+        if(snap.exists()){ entry={...snap.data()}; delete entry._sheet; delete entry._updatedAt; entry._sh=sh; }
+      }
+    }catch(e){ console.error('FB fetch entry by id:', e); }
+  }
+  if(entry) showDetail(entry);
+  else toast("Impossible de charger l'enregistrement",'error');
+}
+let acteDupProceedCb=null;
+function showActeDupWarning(dups, proceedCb){
+  acteDupProceedCb=proceedCb;
+  document.getElementById('acteDupList').innerHTML=dups.map(d=>`
+    <div style="margin-bottom:10px;padding:8px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
+      IM <b class="mono">${escHtml(d.im)}</b> / MVT <b>${escHtml(d.mvt)}</b> / Chapitre <b>${escHtml(d.chapitre||'—')}</b><br>
+      déjà saisi par <b>${escHtml(d.createdBy||'—')}</b> sous Sigle <b>${escHtml(d.sigle||'—')}</b>/Paquet <b>${escHtml(d.paquet||'—')}</b>, exploitation <b>${escHtml(d.exploitation||'—')}</b>.<br>
+      <a href="#" onclick="closeActeDupModal();showEntryById('${escHtml(d.entryId)}','${escHtml(d.sh)}');return false;" style="color:var(--accent)">Voir l'enregistrement →</a>
+    </div>`).join('');
+  document.getElementById('acteDupOkBtn').onclick=()=>{closeActeDupModal();acteDupProceedCb&&acteDupProceedCb();};
+  document.getElementById('acteDupModal').classList.remove('hidden');
+}
+function closeActeDupModal(){document.getElementById('acteDupModal').classList.add('hidden');acteDupProceedCb=null;}
+async function checkGlobalDuplicateST(nst, excludeId){
+  try{
+    const db=getDB(); if(!db) return null;
+    const q=window._query(window._collection(db,'entries'), window._where('numero_st','==',nst));
+    const snap=await window._getDocs(q);
+    let found=null;
+    snap.forEach(doc=>{ const d=doc.data(); if(!excludeId || d._id!==excludeId) found=d; });
+    return found;
+  }catch(e){ console.error('FB check dup ST:', e); return null; }
 }
 async function submitSaisie(){
   const al=document.getElementById('saisieAlert');
@@ -1999,10 +2329,19 @@ async function submitSaisie(){
   const pa=document.getElementById('fPaquet').value.trim();
   const ed=document.getElementById('fEdition').value;
   const ex=document.getElementById('fExploitation').value;
+  // S'assurer que les données du mois choisi sont en mémoire, pour une vérification de doublons fiable
+  // (le mois choisi peut différer du mois "en direct" de l'utilisateur, notamment pour un acte en retard)
+  if(ex) await ensureExploitationLoaded(ex);
   const isC=cu.role==='chef';const errs=[];
   if(!dd)errs.push('Date DCSAC requise');
   if(!isC&&!isSIG&&(!nst||isNaN(nst)))errs.push('Numéro ST invalide');
-  if(nst&&allData().find(r=>r.numero_st===nst&&(!editEntry||r.numero_st!==editEntry.numero_st)))errs.push(`ST ${nst} déjà utilisé`);
+  let dupST=nst?allData().find(r=>r.numero_st===nst&&(!editEntry||r.numero_st!==editEntry.numero_st)):null;
+  if(nst&&!dupST&&window._fbReady){
+    // Filet de sécurité : vérification directe sur Firebase, au cas où le doublon se trouverait
+    // dans un mois pas encore chargé localement (ex: un acte en retard sur un mois plus ancien)
+    dupST=await checkGlobalDuplicateST(nst, editEntry?editEntry._id:null);
+  }
+  if(dupST)errs.push(`ST ${nst} déjà utilisé`);
   if(!ed)errs.push("Type d'édition requis");if(!ex)errs.push('Exploitation requise');
   if(!isC&&!/^\d{1,6}$/.test(si))errs.push('Sigle: 6 chiffres maximum');
   if(si&&!/^\d{1,6}$/.test(si))errs.push('Sigle: 6 chiffres maximum');
@@ -2010,24 +2349,42 @@ async function submitSaisie(){
   if(pa&&!/^[A-Za-z0-9]{1,6}$/.test(pa))errs.push('Paquet: max 6 car.');
   if(acteRows.length===0)errs.push('Au moins un acte requis');
   acteRows.forEach((a,i)=>{if(!a.im||!(/^\d{7}$/.test(a.im)||/^[A-Za-z]\d{6}$/.test(a.im)))errs.push(`Acte ${i+1}: IM invalide (7 car.)`);if(!a.mvt)errs.push(`Acte ${i+1}: MVT requis`);});
-  if(!editEntry&&si&&pa&&ex&&ed){const dup=allData().find(r=>r.sigle===si&&r.paquet&&r.paquet.toUpperCase()===pa.toUpperCase()&&r.exploitation===ex&&r.edition===ed);if(dup)errs.push(`Sigle ${si}/Paquet ${pa} déjà utilisé pour ${ed} ${ex}`);}
+  if(!editEntry&&si&&pa&&ex&&ed){const dup=allData().find(r=>r.sigle===si&&r.paquet&&r.paquet.toUpperCase()===pa.toUpperCase()&&r.exploitation===ex&&r.edition===ed);if(dup)errs.push({html:`Le Sigle <b>${escHtml(si)}</b>/Paquet <b>${escHtml(pa)}</b> est déjà utilisé par <b>${escHtml(dup.createdBy||'—')}</b> durant l'exploitation <b>${escHtml(dup.exploitation)}</b>. <a href="#" onclick="closeErrorModal();showEntryById('${escHtml(dup._id)}','${escHtml(dup._sh)}');return false;" style="color:var(--accent)">Voir l'enregistrement →</a>`});}
   if(errs.length){showErrorModal(errs);return;}
-  const resp=document.getElementById('fRespCESP').value||'????';
-  const dc=(resp!=='????'&&resp!=='Auto'&&!resp.includes('trouvé'))?(document.getElementById('fDateCESP').value||''):'';
   const sh=editEntry?editEntry.sheetName:(cu.role==='chef'?'CHEF_BUREAU':(cu.sheet||'VICKY'));
   const entryId=editEntry?(editEntry._id||stableEntryId(sh,{numero_st:editEntry.numero_st})):stableEntryId(sh,{numero_st:nst});
+  // Vérification (avertissement, non bloquante) : même IM+MVT+Chapitre déjà saisi ailleurs sur la même année,
+  // potentiellement sous un autre Sigle/Paquet — signe possible d'un doublon de traitement.
+  const proceed=()=>finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId);
+  if(window._fbReady){
+    const year=extractYear(ex);
+    const dups=[];
+    for(const a of acteRows){
+      const found=await fbCheckActeIndex(a.im.trim(),a.mvt,a.chapitre||'',year);
+      if(found&&found.entryId!==entryId){ dups.push({...found, im:a.im, mvt:a.mvt, chapitre:a.chapitre}); }
+    }
+    if(dups.length){ showActeDupWarning(dups, proceed); return; }
+  }
+  proceed();
+}
+async function finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId){
+  const resp=document.getElementById('fRespCESP').value||'????';
+  const dc=(resp!=='????'&&resp!=='Auto'&&!resp.includes('trouvé'))?(document.getElementById('fDateCESP').value||''):'';
   const entry={_id:entryId,date_dcsac:dd,numero_st:nst,sigle:si||'',paquet:pa?pa.toUpperCase():'',edition:ed,exploitation:ex,resp_cesp:resp==='Auto'||resp.includes('trouvé')?'????':resp,date_cesp:dc,createdBy:editEntry?(curDetail?.createdBy||cu.name):cu.name,type_acte:selectedActeType||'SGSP',actes:acteRows.map(a=>({im:a.im.trim(),mvt:a.mvt,chapitre:a.chapitre||''}))};
+  state.lastExploitation=ex;
   registerNewChapitresFromActes(entry.actes);
   if(!state.sheets[sh])state.sheets[sh]=[];
   const wasEdit=!!editEntry;
+  const oldEntrySnapshot=editEntry?{...editEntry}:null;
   if(editEntry){
     const d=state.sheets[editEntry.sheetName];
     const idx=d.findIndex(x=>(x._id||stableEntryId(editEntry.sheetName,x))===entryId);
     if(idx>=0)d[idx]=entry;else d.push(entry);
     toast(`ST ${nst||'—'} mis à jour`,'success');
-    fbSyncEntry(editEntry.sheetName, entry).then(ok=>{if(!ok)toast('⚠ Erreur de synchronisation Firebase — vérifiez votre connexion','error');});
+    fbSyncEntry(editEntry.sheetName, entry).then(ok=>{if(!ok)toast('⚠ Erreur de synchronisation — vérifiez votre connexion','error');});
   }
-  else{state.sheets[sh].push(entry);toast(`ST ${nst||'—'} enregistré — Prêt pour la saisie suivante`,'success');fbSyncEntry(sh, entry).then(ok=>{if(!ok)toast('⚠ Erreur de synchronisation Firebase — vérifiez votre connexion','error');});}
+  else{state.sheets[sh].push(entry);toast(`ST ${nst||'—'} enregistré — Prêt pour la saisie suivante`,'success');fbSyncEntry(sh, entry).then(ok=>{if(!ok)toast('⚠ Erreur de synchronisation — vérifiez votre connexion','error');});}
+  syncActeIndex(oldEntrySnapshot, entry, sh);
   saveState();
   const ap=PAGES.find(p=>!document.getElementById('page-'+p)?.classList.contains('hidden'));
   if(ap==='dashboard')renderDash();if(ap==='liste')filterList();
@@ -2054,11 +2411,12 @@ function doSearch(){
 function renderRapports(){
   // Tous les utilisateurs voient tous les comptables
   const users=COMPTABLES;
-  document.getElementById('rp1User').innerHTML=users.map(c=>`<option value="${c}">${c==='CHEF_BUREAU'?'Chef':c}</option>`).join('');
+  const curUser=document.getElementById('rp1User').value;
+  document.getElementById('rp1User').innerHTML=users.map(c=>`<option value="${c}"${c===curUser?' selected':''}>${c==='CHEF_BUREAU'?'Chef':c}</option>`).join('');
   // init type selects avec option "Tous" (valeur vide)
   ['rp1Type','rp2Type'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el){el.innerHTML='<option value="">Tous</option><option value="SGSP">SGSP</option><option value="SIGSOLDE">SIGSOLDE</option>';}
+    if(el){const cur=el.value;el.innerHTML=`<option value=""${!cur?' selected':''}>Tous</option><option value="SGSP"${cur==='SGSP'?' selected':''}>SGSP</option><option value="SIGSOLDE"${cur==='SIGSOLDE'?' selected':''}>SIGSOLDE</option>`;}
   });
   // Initialiser les périodes immédiatement
   updateRpPeriodes('rp1');
@@ -2066,13 +2424,15 @@ function renderRapports(){
 }
 function updateRpPeriodes(px){
   const ed = document.getElementById(`${px}Edition`).value;
-  const ty = document.getElementById(`${px}Type`).value;
   const el = document.getElementById(`${px}Periode`);
   if(!ed){ el.innerHTML='<option value="">—</option>'; return; }
-  let data = allData().filter(r=>r.edition===ed);
-  if(ty) data = data.filter(r=>r.type_acte===ty);
-  const ps = [...new Set(data.map(r=>r.exploitation).filter(Boolean))].sort();
-  el.innerHTML='<option value="">—</option>'+ps.map(p=>`<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('');
+  const ps = getPeriodes();
+  const cur = el.value;
+  el.innerHTML='<option value="">—</option>'+ps.map(p=>`<option value="${escHtml(p)}"${p===cur?' selected':''}>${escHtml(p)}</option>`).join('');
+}
+function onRpPeriodeChange(px){
+  const pe=document.getElementById(`${px}Periode`).value;
+  if(pe) ensureExploitationLoaded(pe);
 }
 function updateRp2Periodes(){updateRpPeriodes('rp2');updateRapport2Preview();}
 function updateRapport2Preview(){
@@ -2088,6 +2448,7 @@ function updateRapport2Preview(){
 async function exportRapport1(){
   const u=document.getElementById('rp1User').value,ed=document.getElementById('rp1Edition').value,ty=document.getElementById('rp1Type').value,pe=document.getElementById('rp1Periode').value;
   if(!ed||!pe){toast("Sélectionnez l'édition et la période",'error');return;}
+  await ensureExploitationLoaded(pe);
   let data=(state.sheets[u]||[]).filter(r=>r.edition===ed && r.exploitation===pe);
   if(ty) data=data.filter(r=>r.type_acte===ty);
   if(!data.length){toast('Aucune donnée','error');return;}
@@ -2133,9 +2494,10 @@ async function exportRapport1(){
   URL.revokeObjectURL(url);
   toast('Rapport 1 exporté','success');
 }
-function exportRapport2(){
+async function exportRapport2(){
   const ed=document.getElementById('rp2Edition').value,ty=document.getElementById('rp2Type').value,pe=document.getElementById('rp2Periode').value;
   if(!ed||!pe){toast("Sélectionnez l'édition et la période",'error');return;}
+  await ensureExploitationLoaded(pe);
   const rows=[['Nom du Comptable',"Nombre d'Actes traités"]];
   COMPTABLES.forEach(c=>{
     let d=(state.sheets[c]||[]).filter(r=>r.edition===ed && r.exploitation===pe);
@@ -2146,10 +2508,10 @@ function exportRapport2(){
 }
 // ======== CESP ========
 function handleCESPFile(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});let hr=-1;for(let i=0;i<Math.min(json.length,5);i++){if(json[i].some(c=>typeof c==='string'&&c.toUpperCase().includes('DATE'))){hr=i;break;}}if(hr<0){document.getElementById('cespImportStatus').innerHTML='<div class="alert ae2">Structure non reconnue.</div>';return;}const hdrs=json[hr].map(h=>String(h||'').trim().toUpperCase());const di=hdrs.findIndex(h=>h.includes('DATE'));const rc=RESP.map(r=>({name:r,idx:hdrs.findIndex(h=>h===r)}));const parsed=[];for(let i=hr+1;i<json.length;i++){const row=json[i];if(!row[di])continue;const obj={date_cesp:row[di]};rc.forEach(r=>{if(r.idx>=0){const v=parseInt(row[r.idx]);obj[r.name]=isNaN(v)?null:v;}else obj[r.name]=null;});parsed.push(obj);}pendingCESP=parsed;document.getElementById('cespImportStatus').innerHTML=`<div class="alert as2">✓ ${parsed.length} lignes détectées.</div>`;const prev=parsed.slice(0,8);document.getElementById('cespImportPreview').innerHTML=`<div class="table-wrap" style="max-height:200px;overflow-y:auto"><div class="table-scroll"><table><thead><tr><th>Date</th>${RESP.map(r=>`<th>${r}</th>`).join('')}</tr></thead><tbody>${prev.map(r=>`<tr><td class="mono" style="color:var(--accent)">${escHtml(String(r.date_cesp))}</td>${RESP.map(rs=>`<td class="mono">${r[rs]||'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${parsed.length>8?`<div style="padding:8px 12px;font-size:11px;color:var(--text3)">...et ${parsed.length-8} lignes</div>`:''}</div>`;document.getElementById('cespImportActions').style.display='';}catch(err){document.getElementById('cespImportStatus').innerHTML=`<div class="alert ae2">Erreur: ${escHtml(err.message)}</div>`;}};reader.readAsArrayBuffer(file);}
-function confirmCESPImport(){if(!pendingCESP)return;const imp=pendingCESP;state.cesp.push(...imp);let upd=0;for(const[,rows]of Object.entries(state.sheets)){for(const e of rows){for(const row of imp){for(const r of RESP){if(row[r]===e.numero_st){e.resp_cesp=r;e.date_cesp=row.date_cesp;upd++;}}}}}saveState();toast(`Import: ${imp.length} lignes, ${upd} fiches mises à jour`,'success');pendingCESP=null;document.getElementById('cespImportActions').style.display='none';document.getElementById('cespImportStatus').innerHTML='<div class="alert as2">✓ Import confirmé.</div>';document.getElementById('cespImportPreview').innerHTML='';document.getElementById('cespFileInput').value='';}
+function confirmCESPImport(){if(!pendingCESP)return;const imp=pendingCESP;state.cesp.push(...imp);let upd=0;for(const[,rows]of Object.entries(state.sheets)){for(const e of rows){for(const row of imp){for(const r of RESP){if(row[r]===e.numero_st){e.resp_cesp=r;e.date_cesp=row.date_cesp;upd++;}}}}}saveState();toast(`Import: ${imp.length} lignes, ${upd} fiches mises à jour`,'success');pendingCESP=null;document.getElementById('cespImportActions').style.display='none';document.getElementById('cespImportStatus').innerHTML='<div class="alert as2">✓ Import confirmé.</div>';document.getElementById('cespImportPreview').innerHTML='';document.getElementById('cespFileInput').value='';Promise.all(imp.map(row=>fbSaveCesp(row))).then(results=>{const fails=results.filter(ok=>!ok).length;if(fails)toast(`⚠ ${fails} ligne(s) importée(s) localement mais non synchronisée(s) (base de données) — vérifiez les droits d'accès`,'error');if(results.some(ok=>ok))touchVersion('cesp');});}
 function cancelCESPImport(){pendingCESP=null;document.getElementById('cespImportStatus').innerHTML='';document.getElementById('cespImportPreview').innerHTML='';document.getElementById('cespImportActions').style.display='none';document.getElementById('cespFileInput').value='';}
 function renderCespManualGrid(){document.getElementById('cespManualGrid').innerHTML=RESP.map(r=>`<div class="fg"><label class="fl">${rb(r)} ${r}</label><textarea id="cM_${r}" class="fi" rows="3" placeholder="Un N° ST par ligne" style="resize:vertical;font-family:var(--font-mono);font-size:13px;min-height:80px"></textarea></div>`).join('');}
-function submitCESPManual(){const dt=document.getElementById('cespManualDate').value,al=document.getElementById('cespManualAlert');if(!dt){al.innerHTML='<div class="alert ae2">Date requise</div>';return;}const ent={};for(const r of RESP){const raw=document.getElementById(`cM_${r}`)?.value||'';ent[r]=raw.split('\n').map(v=>parseInt(v.trim())).filter(v=>!isNaN(v));}const tot=Object.values(ent).reduce((s,v)=>s+v.length,0);if(!tot){al.innerHTML='<div class="alert ae2">Au moins un N° ST</div>';return;}const mx=Math.max(...Object.values(ent).map(v=>v.length),1);const newRows=[];for(let i=0;i<mx;i++){const row={date_cesp:dt};for(const r of RESP)row[r]=ent[r][i]||null;state.cesp.push(row);newRows.push(row);}let upd=0;for(const[,rows]of Object.entries(state.sheets)){for(const e of rows){for(const r of RESP){if(ent[r].includes(e.numero_st)){e.resp_cesp=r;e.date_cesp=dt;upd++;}}}}saveState();newRows.forEach(row => fbSaveCesp(row));al.innerHTML=`<div class="alert as2">✓ ${tot} ST enregistrés, ${upd} fiches mises à jour.</div>`;toast(`${tot} ST assignés`,'success');resetCespManual();}
+function submitCESPManual(){const dt=document.getElementById('cespManualDate').value,al=document.getElementById('cespManualAlert');if(!dt){al.innerHTML='<div class="alert ae2">Date requise</div>';return;}const ent={};for(const r of RESP){const raw=document.getElementById(`cM_${r}`)?.value||'';ent[r]=raw.split('\n').map(v=>parseInt(v.trim())).filter(v=>!isNaN(v));}const tot=Object.values(ent).reduce((s,v)=>s+v.length,0);if(!tot){al.innerHTML='<div class="alert ae2">Au moins un N° ST</div>';return;}const mx=Math.max(...Object.values(ent).map(v=>v.length),1);const newRows=[];for(let i=0;i<mx;i++){const row={date_cesp:dt};for(const r of RESP)row[r]=ent[r][i]||null;state.cesp.push(row);newRows.push(row);}let upd=0;for(const[,rows]of Object.entries(state.sheets)){for(const e of rows){for(const r of RESP){if(ent[r].includes(e.numero_st)){e.resp_cesp=r;e.date_cesp=dt;upd++;}}}}saveState();newRows.forEach(row => fbSaveCesp(row));touchVersion('cesp');al.innerHTML=`<div class="alert as2">✓ ${tot} ST enregistrés, ${upd} fiches mises à jour.</div>`;toast(`${tot} ST assignés`,'success');resetCespManual();}
 function resetCespManual(){document.getElementById('cespManualDate').value='';RESP.forEach(r=>{const el=document.getElementById(`cM_${r}`);if(el)el.value='';}); }
 function renderDonneesCESP(){cespFilt=buildCespFlat();document.getElementById('cespCount').textContent=`${cespFilt.length} entrées`;renderCespTable();}
 function buildCespFlat(){const rows=[];for(const row of state.cesp){for(const r of RESP){if(row[r]!=null)rows.push({date_cesp:row.date_cesp,responsable:r,numero_st:row[r]});}}return rows;}
@@ -2169,7 +2531,9 @@ function renderConfig(){
     </div>`;
     h+=`<div class="fc"><div class="fct">Exploitation par défaut</div><div class="fg" style="max-width:240px"><label class="fl">Période courante</label><select id="configExploit" class="fs"></select></div><div class="fa"><button class="btn bp" onclick="saveConfig()">Enregistrer</button></div></div>`;
     h+=`<div class="fc"><div class="fct">Gestion des Chapitres</div><div class="alert ai2">🔥 Liste partagée : tout chapitre importé ou ajouté ici est synchronisé automatiquement et visible par tous les utilisateurs, en temps réel.</div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px"><div class="fg"><label class="fl">Import Excel</label><div class="uz" onclick="document.getElementById('chapFI').click()" style="padding:12px 16px"><input type="file" id="chapFI" accept=".xlsx,.xls,.csv" onchange="handleChapFile(event)" style="display:none"><span style="font-size:12px;color:var(--text2)">📂 Sélectionner fichier chapitres</span></div></div><div class="fg"><label class="fl">Ajout manuel</label><div style="display:flex;gap:8px"><input type="text" id="newChap" class="fi" placeholder="ex: 750110" style="max-width:160px;font-family:var(--font-mono)" /><button class="btn bsu" onclick="addChap()">Ajouter</button></div></div></div><div id="chapList"></div></div>`;
-    h+=`<div class="fc"><div class="fct" style="color:var(--green)">🔥 Firebase connecté</div><div class="alert as2">Les données sont synchronisées automatiquement avec Firebase (Google). Aucune configuration supplémentaire nécessaire.</div><div id="configOdSt" style="margin-bottom:12px"></div><div class="fa"><button class="btn bp" onclick="fbLoadAll().then(()=>{renderDash();toast('Données rechargées','success')})">🔄 Recharger depuis Firebase</button><button class="btn bp" onclick="syncAllToFirebase()">📤 Sync complète vers Firebase</button><button class="btn bs" onclick="expData()">Exporter JSON</button></div></div>`;
+    h+=`<div class="fc"><div class="fct" style="color:var(--green)">🔥 Base de données connectée</div><div class="alert as2">Les données sont synchronisées automatiquement avec la base de données. Aucune configuration supplémentaire nécessaire.</div><div id="configOdSt" style="margin-bottom:12px"></div><div class="fa"><button class="btn bp" onclick="fbLoadAll().then(()=>{renderDash();toast('Données rechargées','success')})">🔄 Recharger depuis la base de données</button><button class="btn bp" onclick="syncAllToFirebase()">📤 Sync complète vers la base de données</button><button class="btn bs" onclick="expData()">Exporter JSON</button></div></div>`;
+    h+=`<div class="fc"><div class="fct">Sauvegarde globale des données</div><div class="alert ai2" style="font-size:12px">Génère un fichier .txt (compatible Excel) listant tous les actes enregistrés : Comptable, Exploitation, Édition, Numéro ST, Sigle, Paquet, MVT, Chapitre. Un rappel s'affiche automatiquement si la dernière sauvegarde date de plus de 3 mois — vous pouvez aussi la faire à tout moment.</div><div id="lastBackupInfo" style="font-size:12px;color:var(--text3);margin-bottom:10px">${state.config?.lastBackupAt?`Dernière sauvegarde : ${new Date(state.config.lastBackupAt).toLocaleDateString('fr-FR')}`:'Aucune sauvegarde effectuée pour le moment.'}</div><div class="fa"><button class="btn bp" onclick="generateGlobalBackup()">💾 Générer la sauvegarde (.txt)</button></div></div>`;
+    h+=`<div class="fc"><div class="fct">Index anti-doublons (IM/MVT/Chapitre)</div><div class="alert ai2" style="font-size:12px">Détecte si un même mouvement (IM+MVT+Chapitre) a déjà été saisi ailleurs sous un autre Sigle/Paquet, sur la même année. À lancer une fois pour indexer l'historique déjà existant — les nouveaux actes s'indexent automatiquement.</div><div class="fa"><button class="btn bp" onclick="buildActeIndexFromScratch()">🔧 Construire l'index à partir de l'historique</button></div></div>`;
     h+=`<div class="fc"><div class="fct">📥 Import Excel — Répartition des actes</div><div class="alert ai2">Importez un fichier Excel (colonnes : <strong>DATE DCSAC, NUMERO ST, SIGLE, PAQUET, IM, MVT, CHAPITRE</strong>) et répartissez automatiquement les actes vers un comptable ou le Chef de Bureau. Les mouvements multiples dans une même cellule (ex: 28/63, 28-63, 28,63, 28 et 63) sont automatiquement séparés en actes distincts. La règle de 10 actes maximum par Sigle/Paquet est respectée — le surplus est réparti en entrées supplémentaires.</div>
       <div class="form-grid" style="max-width:720px">
         <div class="fg"><label class="fl">Imputer à <span class="req">*</span></label><select id="impUser" class="fs"><option value="">— Choisir —</option>${COMPTABLES.map(c=>`<option value="${c}">${c==='CHEF_BUREAU'?'Chef de Bureau':c}</option>`).join('')}</select></div>
@@ -2202,7 +2566,7 @@ async function initGSheets(){if(!state.config?.gsUrl){toast("Entrez d'abord l'UR
 async function syncAllToGS(){if(!state.config?.gsUrl||!state.config?.gsConnected){toast('Connectez Google Sheets d\'abord','error');return;}toast('Synchronisation en cours...','success');const sheetsData={};for(const name of COMPTABLES){const entries=state.sheets[name]||[];const rows=[];entries.forEach(e=>entryToRows(e).forEach(r=>rows.push(r)));sheetsData[name]=rows;}const cespRows=(state.cesp||[]).map(row=>({DATE_CESP:row.date_cesp||'',...Object.fromEntries(RESP.map(r=>[r,row[r]||'']))}));const result=await gsCall('POST',{action:'sync_all',sheets:sheetsData,cesp:cespRows});if(result&&result.status==='ok'){toast('✓ Sync complète — '+result.totalRows+' lignes','success');showSyncBadge(true);}else toast('Erreur sync: '+(result?.message||'?'),'error');}
 function saveConfig(){if(state.config)state.config.exploitation=document.getElementById('configExploit').value;saveState();toast('Configuration enregistrée','success');}
 function applyTheme(id){document.body.className=id==='dark'?'':`theme-${id}`;if(!state.config)state.config={};state.config.theme=id;saveState();if(!document.getElementById('page-config')?.classList.contains('hidden'))renderConfig();toast(`Thème "${THEMES.find(t=>t.id===id)?.name}" appliqué`,'success');}
-function handleChapFile(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});let added=0;const newOnes=[];json.forEach(row=>row.forEach(cell=>{const v=String(cell||'').trim();if(v&&!state.chapitres.includes(v)){state.chapitres.push(v);newOnes.push(v);added++;}}));state.chapitres.sort();saveState();renderChapList();toast(`${added} chapitre(s) importé(s)`,'success');Promise.all(newOnes.map(v=>fbSaveChapitre(v))).then(results=>{const fails=results.filter(ok=>!ok).length;if(fails)toast(`⚠ ${fails} chapitre(s) importé(s) localement mais non synchronisés (Firebase) — vérifiez les droits d'accès`,'error');});}catch(err){toast('Erreur lecture fichier','error');}};reader.readAsArrayBuffer(file);}
+function handleChapFile(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});let added=0;const newOnes=[];json.forEach(row=>row.forEach(cell=>{const v=String(cell||'').trim();if(v&&!state.chapitres.includes(v)){state.chapitres.push(v);newOnes.push(v);added++;}}));state.chapitres.sort();saveState();renderChapList();toast(`${added} chapitre(s) importé(s)`,'success');Promise.all(newOnes.map(v=>fbSaveChapitre(v))).then(results=>{const fails=results.filter(ok=>!ok).length;if(fails)toast(`⚠ ${fails} chapitre(s) importé(s) localement mais non synchronisés (base de données) — vérifiez les droits d'accès`,'error');if(results.some(ok=>ok))touchVersion('chapitres');});}catch(err){toast('Erreur lecture fichier','error');}};reader.readAsArrayBuffer(file);}
 // ======== IMPORT EXCEL — RÉPARTITION DES ACTES ========
 function handleImportFileSelect(e){
   const f=e.target.files[0];impSelectedFile=f||null;
@@ -2282,6 +2646,8 @@ async function runExcelImport(){
   if(!groupKeys.length){resEl.innerHTML=`<div class="alert ae2">Aucune donnée exploitable trouvée dans le fichier.${warnings.length?'<br>'+warnings.map(escHtml).join('<br>'):''}</div>`;return;}
 
   if(!state.sheets[targetUser])state.sheets[targetUser]=[];
+  resEl.innerHTML='<div class="alert ai2">⏳ Vérification des données existantes...</div>';
+  await ensureExploitationLoaded(exploitation);
   const usedNst=new Set(allData().map(r=>r.numero_st).filter(n=>n!=null));
   let created=0,merged=0,overflow=0,totalActes=0;
   const toSync=[];
@@ -2313,8 +2679,8 @@ async function runExcelImport(){
   });
 
   saveState();
-  resEl.innerHTML=`<div class="alert ai2">⏳ Synchronisation Firebase de ${toSync.length} entrée(s)...</div>`;
-  for(const item of toSync){await fbSyncEntry(item.sh,item.entry);}
+  resEl.innerHTML=`<div class="alert ai2">⏳ Synchronisation de ${toSync.length} entrée(s)...</div>`;
+  for(const item of toSync){await fbSyncEntry(item.sh,item.entry);syncActeIndex(null,item.entry,item.sh);}
 
   const ap=PAGES.find(p=>!document.getElementById('page-'+p)?.classList.contains('hidden'));
   if(ap==='dashboard')renderDash();if(ap==='liste')renderListe();
@@ -2325,8 +2691,8 @@ async function runExcelImport(){
   const lbl=document.getElementById('impFileLabel');if(lbl)lbl.textContent='📂 Sélectionner le fichier';
   const fi=document.getElementById('impFile');if(fi)fi.value='';
 }
-function addChap(){const v=document.getElementById('newChap').value.trim();if(!v)return;if(!state.chapitres.includes(v)){state.chapitres.push(v);state.chapitres.sort();saveState();renderChapList();document.getElementById('newChap').value='';toast(`Chapitre ${v} ajouté`,'success');fbSaveChapitre(v).then(ok=>{if(!ok)toast(`⚠ Chapitre ${v} ajouté localement mais pas synchronisé (Firebase) — vérifiez les droits d'accès`,'error');});}}
-function remChap(c){state.chapitres=state.chapitres.filter(x=>x!==c);saveState();renderChapList();fbDeleteChapitre(c).then(ok=>{if(!ok)toast(`⚠ Suppression locale seulement — échec de synchro Firebase pour ${c}`,'error');});}
+function addChap(){const v=document.getElementById('newChap').value.trim();if(!v)return;if(!state.chapitres.includes(v)){state.chapitres.push(v);state.chapitres.sort();saveState();renderChapList();document.getElementById('newChap').value='';toast(`Chapitre ${v} ajouté`,'success');fbSaveChapitre(v).then(ok=>{if(!ok)toast(`⚠ Chapitre ${v} ajouté localement mais pas synchronisé (base de données) — vérifiez les droits d'accès`,'error');else touchVersion('chapitres');});}}
+function remChap(c){state.chapitres=state.chapitres.filter(x=>x!==c);saveState();renderChapList();fbDeleteChapitre(c).then(ok=>{if(!ok)toast(`⚠ Suppression locale seulement — échec de synchronisation pour ${c}`,'error');else touchVersion('chapitres');});}
 function renderChapList(){const el=document.getElementById('chapList');if(!el)return;el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${state.chapitres.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-family:var(--font-mono);font-size:12px">${escHtml(c)}<button onclick="remChap('${escHtml(c)}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0;font-size:15px;line-height:1;min-width:18px">×</button></span>`).join('')}</div>`;}
 function expData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='suivi_st_data.json';a.click();toast('Données exportées','success');}
 async function changeMyPassword(){
