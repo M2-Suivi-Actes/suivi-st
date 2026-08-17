@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r14';
+  var APP_BUILD='2026-08-14-r16';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -884,6 +884,15 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
   <div class="modal msm"><div class="mh"><div class="mt2" id="detailTitle">Détail ST</div><button class="mc" onclick="closeDetail()">✕</button></div><div class="mb3" id="detailBody"></div><div class="mf" id="detailFooter"></div></div>
 </div>
 
+<!-- MODAL AVERTISSEMENT POLITIQUE MVT -->
+<div id="mvtPolicyModal" class="modal-bg hidden">
+  <div class="modal mxs">
+    <div class="mh"><div class="mt2" style="color:var(--orange)">⚠ Type d'acte à vérifier</div><button class="mc" onclick="closeMvtPolicyWarning()">✕</button></div>
+    <div class="mb3"><div id="mvtPolicyMsg" style="font-size:13px;color:var(--text2)"></div></div>
+    <div class="mf"><button class="btn bs" id="mvtPolicySwitchBtn">Basculer</button><button class="btn bp" id="mvtPolicyProceedBtn">Enregistrer quand même</button></div>
+  </div>
+</div>
+
 <!-- MODAL AVERTISSEMENT DOUBLON D'ACTE -->
 <div id="acteDupModal" class="modal-bg hidden">
   <div class="modal mxs">
@@ -1067,8 +1076,8 @@ async function doLogin(){
 function loginSuccess(u){
   preloadData();
   cu={name:u,role:u==='CHEF_BUREAU'?'chef':'comptable',sheet:u==='CHEF_BUREAU'?null:u};
-  dashF={exploitation:getEffectiveExploitation(),edition:null,stat:'mine',comptable:null,type:null};
-  listeSheet=cu.role==='chef'?'ALL':(cu.sheet||'ALL');
+  dashF={exploitation:getEffectiveExploitation(),edition:null,stat:null,comptable:u,type:null};
+  listeSheet=cu.role==='chef'?'CHEF_BUREAU':(cu.sheet||'ALL');
   applyMaintenanceUI();
   applyTheme(state.config?.theme||'gold');
   document.getElementById('loginScreen').classList.add('hidden');
@@ -1531,7 +1540,7 @@ async function deactivateMaintenance(){
     toast('✅ Application remise en ligne','success');
   }catch(e){toast('Erreur: '+e.message,'error');}
 }
-let _unsubEntries=null,_unsubCesp=null,_unsubChapitres=null;
+let _unsubEntries=null,_unsubCesp=null,_unsubChapitres=null,_unsubMvtPolicy=null;
 let currentLiveExploitation=null;
 const loadedExploitations=new Set();
 function getEffectiveExploitation(){
@@ -1579,7 +1588,7 @@ async function ensureExploitationLoaded(value){
   }catch(e){ console.error('FB load exploitation:', e); toast(`Erreur de chargement pour ${value}`,'error'); }
 }
 function anyModalOpen(){
-  return ['choixTypeModal','saisieModal','detailModal','confirmModal','resetPwdModal','acteDupModal'].some(id=>{
+  return ['choixTypeModal','saisieModal','detailModal','confirmModal','resetPwdModal','acteDupModal','mvtPolicyModal'].some(id=>{
     const el=document.getElementById(id);return el && !el.classList.contains('hidden');
   });
 }
@@ -1598,6 +1607,7 @@ function startRealtimeSync(){
   if(_unsubEntries) _unsubEntries();
   if(_unsubCesp) _unsubCesp();
   if(_unsubChapitres) _unsubChapitres();
+  if(_unsubMvtPolicy) _unsubMvtPolicy();
   currentLiveExploitation=getEffectiveExploitation();
   loadedExploitations.add(currentLiveExploitation);
   const entriesQuery=window._query(window._collection(db,'entries'), window._where('exploitation','==',currentLiveExploitation));
@@ -1615,12 +1625,19 @@ function startRealtimeSync(){
     const v = snap.exists() ? snap.data().updatedAt : null;
     checkAndSyncChapitres(v);
   }, e=>console.error('[Firebase] onSnapshot chapitres_version:', e));
+  _unsubMvtPolicy = window._onSnapshot(window._doc(db,'meta','mvt_policy'), snap=>{
+    state.config=state.config||{};
+    state.config.mvtSigsolde=snap.exists()?(snap.data().sigsolde||[]):[];
+    saveState();
+    renderMvtPolicyGrid();
+  }, e=>console.error('[Firebase] onSnapshot mvt_policy:', e));
   return true;
 }
 function stopRealtimeSync(){
   if(_unsubEntries){_unsubEntries();_unsubEntries=null;}
   if(_unsubCesp){_unsubCesp();_unsubCesp=null;}
   if(_unsubChapitres){_unsubChapitres();_unsubChapitres=null;}
+  if(_unsubMvtPolicy){_unsubMvtPolicy();_unsubMvtPolicy=null;}
 }
 async function fbLoadStartup() {
   // CESP et chapitres sont désormais gérés par les listeners légers (mini-fiche témoin) démarrés
@@ -1669,6 +1686,69 @@ async function fbDeleteSync(sheetName, numeroST) {
   if (ok) showSyncBadge(true);
   else showSyncBadge(false);
 }
+async function fbLoadMvtPolicy(){
+  try{
+    const db=getDB(); if(!db) return false;
+    const snap=await window._getDoc(window._doc(db,'meta','mvt_policy'));
+    state.config=state.config||{};
+    state.config.mvtSigsolde=snap.exists()?(snap.data().sigsolde||[]):[];
+    saveState();
+    return true;
+  }catch(e){ console.error('FB load mvt policy:', e); return false; }
+}
+async function saveMvtPolicy(){
+  if(!window._fbReady){toast('Base de données non disponible','error');return;}
+  const db=getDB(); if(!db) return;
+  try{
+    await window._setDoc(window._doc(db,'meta','mvt_policy'), {sigsolde:state.config.mvtSigsolde||[], updatedAt:new Date().toISOString()});
+    toast('✓ Politique enregistrée et synchronisée','success');
+  }catch(e){ console.error('save mvt policy:', e); toast("Erreur lors de l'enregistrement",'error'); }
+}
+function toggleMvtPolicy(m){
+  state.config=state.config||{};
+  const set=new Set(state.config.mvtSigsolde||[]);
+  if(set.has(m))set.delete(m);else set.add(m);
+  state.config.mvtSigsolde=[...set];
+  saveState();
+  renderMvtPolicyGrid();
+}
+function renderMvtPolicyGrid(){
+  const el=document.getElementById('mvtPolicyGrid'); if(!el) return;
+  const sig=new Set(state.config?.mvtSigsolde||[]);
+  el.innerHTML=MVT.map(m=>{
+    const active=sig.has(m);
+    return `<button type="button" onclick="toggleMvtPolicy('${m}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-family:var(--font-mono);font-weight:600;cursor:pointer;border:1px solid var(--border);background:${active?'var(--orange)':'var(--surface2)'};color:${active?'#fff':'var(--text2)'};min-height:28px">${m}</button>`;
+  }).join('');
+}
+function checkMvtPolicyMismatches(actes, currentType){
+  const sig=new Set(state.config?.mvtSigsolde||[]);
+  if(sig.size===0) return []; // aucune politique configurée par le Chef : pas de vérification
+  const mismatches=[];
+  actes.forEach(a=>{
+    const shouldBeSig=sig.has(a.mvt);
+    if(currentType==='SGSP'&&shouldBeSig) mismatches.push(a.mvt);
+    if(currentType==='SIGSOLDE'&&!shouldBeSig) mismatches.push(a.mvt);
+  });
+  return [...new Set(mismatches)];
+}
+let mvtPolicyProceedCb=null;
+function showMvtPolicyWarning(mismatches, currentType, proceedCb){
+  mvtPolicyProceedCb=proceedCb;
+  const otherType=currentType==='SGSP'?'SIGSOLDE':'SGSP';
+  const plur=mismatches.length>1;
+  document.getElementById('mvtPolicyMsg').innerHTML=`Le${plur?'s':''} mouvement${plur?'s':''} <b>${mismatches.map(escHtml).join(', ')}</b> ${plur?'sont':'est'} normalement réservé${plur?'s':''} à <b>${escHtml(otherType)}</b>, mais vous êtes en train de saisir sous <b>${escHtml(currentType)}</b>.`;
+  const switchBtn=document.getElementById('mvtPolicySwitchBtn');
+  switchBtn.textContent=`Basculer vers ${otherType}`;
+  switchBtn.onclick=()=>{closeMvtPolicyWarning();switchActeTypeAndRetry(otherType);};
+  document.getElementById('mvtPolicyProceedBtn').onclick=()=>{closeMvtPolicyWarning();mvtPolicyProceedCb&&mvtPolicyProceedCb();};
+  document.getElementById('mvtPolicyModal').classList.remove('hidden');
+}
+function closeMvtPolicyWarning(){document.getElementById('mvtPolicyModal').classList.add('hidden');mvtPolicyProceedCb=null;}
+function switchActeTypeAndRetry(newType){
+  selectedActeType=newType;
+  applySaisieTypeStyle(newType);
+  toast(`Formulaire basculé vers ${newType} — vérifiez et cliquez sur Enregistrer`,'success');
+}
 async function fbGetLastBackupDate(){
   try{
     const db=getDB(); if(!db) return null;
@@ -1711,12 +1791,12 @@ async function generateGlobalBackup(){
     snap.forEach(doc=>{
       const d=doc.data();
       const comptable=d._sheet==='CHEF_BUREAU'?'Chef de Bureau':(d._sheet||'');
-      const actes=(d.actes&&d.actes.length)?d.actes:[{mvt:'',chapitre:''}];
+      const actes=(d.actes&&d.actes.length)?d.actes:[{im:'',mvt:'',chapitre:''}];
       actes.forEach(a=>{
-        rows.push([comptable,d.exploitation||'',d.edition||'',d.numero_st??'',d.sigle||'',d.paquet||'',a.mvt||'',a.chapitre||'']);
+        rows.push([comptable,d.exploitation||'',d.edition||'',d.numero_st??'',d.sigle||'',d.paquet||'',a.im||'',a.mvt||'',a.chapitre||'']);
       });
     });
-    const headers=['Comptable','Exploitation','Édition','Numéro ST','Sigle','Paquet','MVT','Chapitre'];
+    const headers=['Comptable','Exploitation','Édition','Numéro ST','Sigle','Paquet','Matricule','MVT','Chapitre'];
     const esc=v=>String(v??'').replace(/\t/g,' ').replace(/[\r\n]/g,' ');
     const lines=[headers.join('\t'), ...rows.map(r=>r.map(esc).join('\t'))];
     const content='\ufeff'+lines.join('\r\n'); // BOM pour un affichage correct des accents dans Excel
@@ -1828,18 +1908,13 @@ function renderDash(){
   const lbl=escHtml((dashF.exploitation||'Toutes périodes')+(dashF.edition?' · '+dashF.edition:'')+(dashF.type?' · '+dashF.type:''));
   
   // Calcul des entrées personnelles pour la stat "mine"
-  let mineCount = 0;
-  if(isC) {
-    mineCount = base.length; // Chef voit tout
-  } else {
-    mineCount = base.filter(r=>r.createdBy===cu.name || r._sh===cu.name).length;
-  }
+  let mineCount = base.filter(r=>r.createdBy===cu.name || r._sh===cu.name).length;
   
   document.getElementById('dashStats').innerHTML=`
     <div class="stat-card sb ${dashF.stat==='all'?'af':''}" onclick="setDashStat('all')"><div class="stat-label">Total ST</div><div class="stat-value">${base.length}</div><div class="stat-sub">${lbl}</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir tout</div></div>
     <div class="stat-card sg ${dashF.stat==='asgn'?'af':''}" onclick="setDashStat('asgn')"><div class="stat-label">Assignés</div><div class="stat-value">${asgn}</div><div class="stat-sub">${pct}% du total</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir assignés</div></div>
     <div class="stat-card so ${dashF.stat==='pend'?'af':''}" onclick="setDashStat('pend')"><div class="stat-label">En attente</div><div class="stat-value">${pend}</div><div class="stat-sub">Sans responsable</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir</div></div>
-    <div class="stat-card sp ${dashF.stat==='mine'?'af':''}" onclick="setDashStat('mine')"><div class="stat-label">${isC?'Total':'Mes entrées'}</div><div class="stat-value">${mineCount}</div><div class="stat-sub">${isC?'Tous':'Mes créations'}</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir</div></div>`;
+    <div class="stat-card sp ${dashF.stat==='mine'?'af':''}" onclick="setDashStat('mine')"><div class="stat-label">Mes entrées</div><div class="stat-value">${mineCount}</div><div class="stat-sub">Mes créations</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir</div></div>`;
   renderDashTable(base);
 }
 function setDashExploit(v){dashF.exploitation=v||null;dashF.stat=null;ensureExploitationLoaded(v||'');renderDash();}
@@ -1853,11 +1928,9 @@ function renderDashTable(base){
   if(dashF.stat==='asgn')data=data.filter(r=>r.resp_cesp&&r.resp_cesp!=='????');
   if(dashF.stat==='pend')data=data.filter(r=>!r.resp_cesp||r.resp_cesp==='????');
   if(dashF.stat==='mine'){
-    if(cu.role==='chef'){ /* déjà tout */ } else {
-      data=data.filter(r=>r.createdBy===cu.name || r._sh===cu.name);
-    }
+    data=data.filter(r=>r.createdBy===cu.name || r._sh===cu.name);
   }
-  const titles={all:'Toutes les entrées',asgn:'Entrées assignées',pend:'En attente',mine:cu.role==='chef'?'Toutes':'Mes entrées'};
+  const titles={all:'Toutes les entrées',asgn:'Entrées assignées',pend:'En attente',mine:'Mes entrées'};
   document.getElementById('dashTableTitle').textContent=dashF.stat?titles[dashF.stat]:'Activité récente';
   document.getElementById('dashTableCount').textContent=`${data.length} entrée${data.length!==1?'s':''}`;
   const rows=dashF.stat?data.slice().sort(cmpSiglePaquet):data.slice().sort(cmpSiglePaquet).slice(0,20);const isC=cu.role==='chef';
@@ -2355,16 +2428,22 @@ async function submitSaisie(){
   const entryId=editEntry?(editEntry._id||stableEntryId(sh,{numero_st:editEntry.numero_st})):stableEntryId(sh,{numero_st:nst});
   // Vérification (avertissement, non bloquante) : même IM+MVT+Chapitre déjà saisi ailleurs sur la même année,
   // potentiellement sous un autre Sigle/Paquet — signe possible d'un doublon de traitement.
-  const proceed=()=>finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId);
-  if(window._fbReady){
-    const year=extractYear(ex);
-    const dups=[];
-    for(const a of acteRows){
-      const found=await fbCheckActeIndex(a.im.trim(),a.mvt,a.chapitre||'',year);
-      if(found&&found.entryId!==entryId){ dups.push({...found, im:a.im, mvt:a.mvt, chapitre:a.chapitre}); }
+  const proceed=async()=>{
+    if(window._fbReady){
+      const year=extractYear(ex);
+      const dups=[];
+      for(const a of acteRows){
+        const found=await fbCheckActeIndex(a.im.trim(),a.mvt,a.chapitre||'',year);
+        if(found&&found.entryId!==entryId){ dups.push({...found, im:a.im, mvt:a.mvt, chapitre:a.chapitre}); }
+      }
+      if(dups.length){ showActeDupWarning(dups, ()=>finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId)); return; }
     }
-    if(dups.length){ showActeDupWarning(dups, proceed); return; }
-  }
+    finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId);
+  };
+  // Vérification (avertissement, non bloquante) : le mouvement (MVT) saisi ne correspond pas au type
+  // d'acte choisi (SGSP/SIGSOLDE) selon la politique définie par le Chef de Bureau.
+  const mvtMismatches=checkMvtPolicyMismatches(acteRows, selectedActeType);
+  if(mvtMismatches.length){ showMvtPolicyWarning(mvtMismatches, selectedActeType, proceed); return; }
   proceed();
 }
 async function finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId){
@@ -2532,7 +2611,8 @@ function renderConfig(){
     h+=`<div class="fc"><div class="fct">Exploitation par défaut</div><div class="fg" style="max-width:240px"><label class="fl">Période courante</label><select id="configExploit" class="fs"></select></div><div class="fa"><button class="btn bp" onclick="saveConfig()">Enregistrer</button></div></div>`;
     h+=`<div class="fc"><div class="fct">Gestion des Chapitres</div><div class="alert ai2">🔥 Liste partagée : tout chapitre importé ou ajouté ici est synchronisé automatiquement et visible par tous les utilisateurs, en temps réel.</div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px"><div class="fg"><label class="fl">Import Excel</label><div class="uz" onclick="document.getElementById('chapFI').click()" style="padding:12px 16px"><input type="file" id="chapFI" accept=".xlsx,.xls,.csv" onchange="handleChapFile(event)" style="display:none"><span style="font-size:12px;color:var(--text2)">📂 Sélectionner fichier chapitres</span></div></div><div class="fg"><label class="fl">Ajout manuel</label><div style="display:flex;gap:8px"><input type="text" id="newChap" class="fi" placeholder="ex: 750110" style="max-width:160px;font-family:var(--font-mono)" /><button class="btn bsu" onclick="addChap()">Ajouter</button></div></div></div><div id="chapList"></div></div>`;
     h+=`<div class="fc"><div class="fct" style="color:var(--green)">🔥 Base de données connectée</div><div class="alert as2">Les données sont synchronisées automatiquement avec la base de données. Aucune configuration supplémentaire nécessaire.</div><div id="configOdSt" style="margin-bottom:12px"></div><div class="fa"><button class="btn bp" onclick="fbLoadAll().then(()=>{renderDash();toast('Données rechargées','success')})">🔄 Recharger depuis la base de données</button><button class="btn bp" onclick="syncAllToFirebase()">📤 Sync complète vers la base de données</button><button class="btn bs" onclick="expData()">Exporter JSON</button></div></div>`;
-    h+=`<div class="fc"><div class="fct">Sauvegarde globale des données</div><div class="alert ai2" style="font-size:12px">Génère un fichier .txt (compatible Excel) listant tous les actes enregistrés : Comptable, Exploitation, Édition, Numéro ST, Sigle, Paquet, MVT, Chapitre. Un rappel s'affiche automatiquement si la dernière sauvegarde date de plus de 3 mois — vous pouvez aussi la faire à tout moment.</div><div id="lastBackupInfo" style="font-size:12px;color:var(--text3);margin-bottom:10px">${state.config?.lastBackupAt?`Dernière sauvegarde : ${new Date(state.config.lastBackupAt).toLocaleDateString('fr-FR')}`:'Aucune sauvegarde effectuée pour le moment.'}</div><div class="fa"><button class="btn bp" onclick="generateGlobalBackup()">💾 Générer la sauvegarde (.txt)</button></div></div>`;
+    h+=`<div class="fc"><div class="fct">Sauvegarde globale des données</div><div class="alert ai2" style="font-size:12px">Génère un fichier .txt (compatible Excel) listant tous les actes enregistrés : Comptable, Exploitation, Édition, Numéro ST, Sigle, Paquet, Matricule, MVT, Chapitre. Un rappel s'affiche automatiquement si la dernière sauvegarde date de plus de 3 mois — vous pouvez aussi la faire à tout moment.</div><div id="lastBackupInfo" style="font-size:12px;color:var(--text3);margin-bottom:10px">${state.config?.lastBackupAt?`Dernière sauvegarde : ${new Date(state.config.lastBackupAt).toLocaleDateString('fr-FR')}`:'Aucune sauvegarde effectuée pour le moment.'}</div><div class="fa"><button class="btn bp" onclick="generateGlobalBackup()">💾 Générer la sauvegarde (.txt)</button></div></div>`;
+    h+=`<div class="fc"><div class="fct">Politique SGSP / SIGSOLDE par mouvement (MVT)</div><div class="alert ai2" style="font-size:12px">Sélectionnez les mouvements (MVT) qui doivent normalement être saisis sous <b>SIGSOLDE</b> — tous les autres seront considérés comme relevant de <b>SGSP</b>. Si aucun mouvement n'est sélectionné, aucune vérification n'est appliquée à la saisie.</div><div id="mvtPolicyGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div><div class="fa"><button class="btn bp" onclick="saveMvtPolicy()">Enregistrer la politique</button></div></div>`;
     h+=`<div class="fc"><div class="fct">Index anti-doublons (IM/MVT/Chapitre)</div><div class="alert ai2" style="font-size:12px">Détecte si un même mouvement (IM+MVT+Chapitre) a déjà été saisi ailleurs sous un autre Sigle/Paquet, sur la même année. À lancer une fois pour indexer l'historique déjà existant — les nouveaux actes s'indexent automatiquement.</div><div class="fa"><button class="btn bp" onclick="buildActeIndexFromScratch()">🔧 Construire l'index à partir de l'historique</button></div></div>`;
     h+=`<div class="fc"><div class="fct">📥 Import Excel — Répartition des actes</div><div class="alert ai2">Importez un fichier Excel (colonnes : <strong>DATE DCSAC, NUMERO ST, SIGLE, PAQUET, IM, MVT, CHAPITRE</strong>) et répartissez automatiquement les actes vers un comptable ou le Chef de Bureau. Les mouvements multiples dans une même cellule (ex: 28/63, 28-63, 28,63, 28 et 63) sont automatiquement séparés en actes distincts. La règle de 10 actes maximum par Sigle/Paquet est respectée — le surplus est réparti en entrées supplémentaires.</div>
       <div class="form-grid" style="max-width:720px">
@@ -2556,7 +2636,7 @@ function renderConfig(){
     const impEp=document.getElementById('impExploit');
     if(impEp){const ps=getPeriodes();impEp.innerHTML='<option value="">— Choisir —</option>'+ps.map(p=>`<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('');}
     const urlEl=document.getElementById('configOdUrl');if(urlEl)urlEl.value=state.config?.gsUrl||'';
-    renderChapList();updateCfgOdSt();
+    renderChapList();renderMvtPolicyGrid();updateCfgOdSt();
   }
 }
 function updateCfgOdSt(){const el=document.getElementById('configOdSt');if(!el)return;const ok=state.config?.gsConnected,url=state.config?.gsUrl||'';el.innerHTML=ok&&url?'<span class="ods odc"><span class="dot"></span>Connecté — synchronisation active</span>':url?'<span class="ods odp"><span class="dot"></span>URL configurée — non testée</span>':'<span class="ods odd"><span class="dot"></span>Non configuré</span>';}
