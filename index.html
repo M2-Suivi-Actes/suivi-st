@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r16';
+  var APP_BUILD='2026-08-14-r18';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -731,7 +731,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
               <div class="search-box"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="listSearch" placeholder="ST, IM, Sigle..." oninput="filterList()"></div>
               <select class="fsel" id="filterEdition" onchange="filterList()"><option value="">Toutes éditions</option><option value="NORMALE">Normale</option><option value="SPECIALE">Spéciale</option></select>
               <select class="fsel" id="filterType" onchange="filterList()"><option value="">Tous types</option><option value="SGSP">SGSP</option><option value="SIGSOLDE">SIGSOLDE</option></select>
-              <select class="fsel" id="filterExploitation" onchange="ensureExploitationLoaded(this.value);filterList()"><option value="">Toutes exploitations</option></select>
+              <select class="fsel" id="filterExploitation" onchange="userExploitationOverride=true;ensureExploitationLoaded(this.value);filterList()"><option value="">Toutes exploitations</option></select>
               <select class="fsel" id="filterSigle" onchange="filterList()"><option value="">Tous sigles</option></select>
               <select class="fsel" id="filterResp" onchange="filterList()"><option value="">Tous resp.</option><option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option><option value="D4">D4</option><option value="D5">D5</option><option value="D6">D6</option><option value="D7">D7</option><option value="D8">D8</option><option value="VONJY">VONJY</option><option value="????">Non assigné</option></select>
             </div>
@@ -1219,6 +1219,7 @@ function doLogout(expired=false){
   stopRealtimeSync();
   stopSession();cu=null;editEntry=null;
   listeExploitInitDone=false;
+  userExploitationOverride=false;
   applyMaintenanceUI();
   document.getElementById('appScreen').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
@@ -1540,10 +1541,12 @@ async function deactivateMaintenance(){
     toast('✅ Application remise en ligne','success');
   }catch(e){toast('Erreur: '+e.message,'error');}
 }
-let _unsubEntries=null,_unsubCesp=null,_unsubChapitres=null,_unsubMvtPolicy=null;
+let _unsubEntries=null,_unsubCesp=null,_unsubChapitres=null,_unsubMvtPolicy=null,_unsubDefaultExploit=null;
+let userExploitationOverride=false; // true dès que l'utilisateur choisit manuellement un mois différent de la référence du Chef
 let currentLiveExploitation=null;
 const loadedExploitations=new Set();
 function getEffectiveExploitation(){
+  if(state.config?.exploitation) return state.config.exploitation; // priorité au choix du Chef de Bureau, valable pour tous
   if(state.lastExploitation) return state.lastExploitation;
   const m=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   const n=new Date();
@@ -1608,6 +1611,7 @@ function startRealtimeSync(){
   if(_unsubCesp) _unsubCesp();
   if(_unsubChapitres) _unsubChapitres();
   if(_unsubMvtPolicy) _unsubMvtPolicy();
+  if(_unsubDefaultExploit) _unsubDefaultExploit();
   currentLiveExploitation=getEffectiveExploitation();
   loadedExploitations.add(currentLiveExploitation);
   const entriesQuery=window._query(window._collection(db,'entries'), window._where('exploitation','==',currentLiveExploitation));
@@ -1631,6 +1635,21 @@ function startRealtimeSync(){
     saveState();
     renderMvtPolicyGrid();
   }, e=>console.error('[Firebase] onSnapshot mvt_policy:', e));
+  _unsubDefaultExploit = window._onSnapshot(window._doc(db,'meta','default_exploitation'), snap=>{
+    const newVal = snap.exists() ? (snap.data().value||'') : '';
+    const prevVal = state.config?.exploitation||'';
+    state.config=state.config||{};
+    state.config.exploitation=newVal;
+    saveState();
+    if(newVal && newVal!==prevVal && !userExploitationOverride){
+      // Le Chef vient de changer l'exploitation par défaut : tout le monde bascule automatiquement dessus,
+      // sauf ceux qui ont déjà choisi manuellement un autre mois pendant leur session.
+      dashF.exploitation=newVal;
+      listeExploitInitDone=false; // laisse renderListe() reprendre la nouvelle référence au prochain affichage
+      if(newVal!==currentLiveExploitation){ startRealtimeSync(); } else { ensureExploitationLoaded(newVal); }
+      refreshCurrentPage();
+    }
+  }, e=>console.error('[Firebase] onSnapshot default_exploitation:', e));
   return true;
 }
 function stopRealtimeSync(){
@@ -1638,6 +1657,7 @@ function stopRealtimeSync(){
   if(_unsubCesp){_unsubCesp();_unsubCesp=null;}
   if(_unsubChapitres){_unsubChapitres();_unsubChapitres=null;}
   if(_unsubMvtPolicy){_unsubMvtPolicy();_unsubMvtPolicy=null;}
+  if(_unsubDefaultExploit){_unsubDefaultExploit();_unsubDefaultExploit=null;}
 }
 async function fbLoadStartup() {
   // CESP et chapitres sont désormais gérés par les listeners légers (mini-fiche témoin) démarrés
@@ -1917,7 +1937,7 @@ function renderDash(){
     <div class="stat-card sp ${dashF.stat==='mine'?'af':''}" onclick="setDashStat('mine')"><div class="stat-label">Mes entrées</div><div class="stat-value">${mineCount}</div><div class="stat-sub">Mes créations</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir</div></div>`;
   renderDashTable(base);
 }
-function setDashExploit(v){dashF.exploitation=v||null;dashF.stat=null;ensureExploitationLoaded(v||'');renderDash();}
+function setDashExploit(v){dashF.exploitation=v||null;dashF.stat=null;userExploitationOverride=true;ensureExploitationLoaded(v||'');renderDash();}
 function toggleDashEdition(e){dashF.edition=dashF.edition===e?null:e;dashF.stat=null;renderDash();}
 function toggleDashType(t){dashF.type=dashF.type===t?null:t;dashF.stat=null;renderDash();}
 function toggleDashCpt(c){dashF.comptable=(c==='Tous'||dashF.comptable===c)?null:c;dashF.stat=null;renderDash();}
@@ -2145,6 +2165,8 @@ function applySaisieTypeStyle(type){
   box.classList.remove('type-sgsp','type-sigsolde');
   const stGroup=document.getElementById('fSTGroup');
   if(stGroup) stGroup.classList.toggle('hidden', type==='SIGSOLDE');
+  const titleEl=document.getElementById('saisieModalTitle');
+  if(titleEl) titleEl.textContent='Nouvelle saisie Acte(s) '+type;
 }
 function openSaisieWithType(type){
   selectedActeType = type;
@@ -2644,7 +2666,22 @@ function saveOdConfig(){const url=(document.getElementById('configOdUrl')?.value
 async function testOdConnect(){const url=(document.getElementById('configOdUrl')?.value||state.config?.gsUrl||'').trim();if(!url){toast("Entrez d'abord l'URL Apps Script",'error');return;}state.config.gsUrl=url;saveState();toast('Test en cours...','success');try{const res=await fetch(`${url}?action=ping`,{method:'GET',redirect:'follow'});if(!res.ok){toast(`Erreur HTTP ${res.status} — vérifiez que l'accès est "Tout le monde"`,'error');return;}const text=await res.text();let data;try{data=JSON.parse(text);}catch(e){if(text.includes('accounts.google'))toast('Erreur auth — changez "Qui a accès" en "Tout le monde" dans le déploiement','error');else toast('Réponse inattendue — re-déployez le script','error');return;}if(data.status==='ok'){state.config.gsConnected=true;saveState();updateCfgOdSt();updateOdBar();toast('✓ Google Sheets connecté !','success');}else toast('Erreur script: '+(data.message||'?'),'error');}catch(e){toast('Connexion échouée: '+e.message,'error');}}
 async function initGSheets(){if(!state.config?.gsUrl){toast("Entrez d'abord l'URL",'error');return;}toast('Initialisation...','success');const r=await gsCall('POST',{action:'init_sheets'});if(r&&r.status==='ok')toast('✓ Feuilles initialisées','success');else toast('Erreur: '+(r?.message||'?'),'error');}
 async function syncAllToGS(){if(!state.config?.gsUrl||!state.config?.gsConnected){toast('Connectez Google Sheets d\'abord','error');return;}toast('Synchronisation en cours...','success');const sheetsData={};for(const name of COMPTABLES){const entries=state.sheets[name]||[];const rows=[];entries.forEach(e=>entryToRows(e).forEach(r=>rows.push(r)));sheetsData[name]=rows;}const cespRows=(state.cesp||[]).map(row=>({DATE_CESP:row.date_cesp||'',...Object.fromEntries(RESP.map(r=>[r,row[r]||'']))}));const result=await gsCall('POST',{action:'sync_all',sheets:sheetsData,cesp:cespRows});if(result&&result.status==='ok'){toast('✓ Sync complète — '+result.totalRows+' lignes','success');showSyncBadge(true);}else toast('Erreur sync: '+(result?.message||'?'),'error');}
-function saveConfig(){if(state.config)state.config.exploitation=document.getElementById('configExploit').value;saveState();toast('Configuration enregistrée','success');}
+async function fbSetDefaultExploitation(value){
+  try{
+    const db=getDB(); if(!db) return false;
+    await window._setDoc(window._doc(db,'meta','default_exploitation'), {value:value||'', updatedAt:new Date().toISOString()});
+    return true;
+  }catch(e){ console.error('save default exploitation:', e); return false; }
+}
+function saveConfig(){
+  if(!state.config)return;
+  const v=document.getElementById('configExploit').value;
+  state.config.exploitation=v;
+  saveState();
+  userExploitationOverride=false; // le Chef redevient la référence par défaut pour tous, y compris pour lui-même
+  fbSetDefaultExploitation(v).then(ok=>{if(!ok)toast('⚠ Enregistré localement mais non synchronisé — vérifiez les droits d\'accès','error');});
+  toast('Configuration enregistrée','success');
+}
 function applyTheme(id){document.body.className=id==='dark'?'':`theme-${id}`;if(!state.config)state.config={};state.config.theme=id;saveState();if(!document.getElementById('page-config')?.classList.contains('hidden'))renderConfig();toast(`Thème "${THEMES.find(t=>t.id===id)?.name}" appliqué`,'success');}
 function handleChapFile(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});let added=0;const newOnes=[];json.forEach(row=>row.forEach(cell=>{const v=String(cell||'').trim();if(v&&!state.chapitres.includes(v)){state.chapitres.push(v);newOnes.push(v);added++;}}));state.chapitres.sort();saveState();renderChapList();toast(`${added} chapitre(s) importé(s)`,'success');Promise.all(newOnes.map(v=>fbSaveChapitre(v))).then(results=>{const fails=results.filter(ok=>!ok).length;if(fails)toast(`⚠ ${fails} chapitre(s) importé(s) localement mais non synchronisés (base de données) — vérifiez les droits d'accès`,'error');if(results.some(ok=>ok))touchVersion('chapitres');});}catch(err){toast('Erreur lecture fichier','error');}};reader.readAsArrayBuffer(file);}
 // ======== IMPORT EXCEL — RÉPARTITION DES ACTES ========
@@ -2791,11 +2828,10 @@ async function changeMyPassword(){
 }
 function showMyRecoveryCode(){if(!state.recoveryCode){toast('Aucun code de récupération trouvé','error');return;}const c=state.recoveryCode;alert('Votre code de récupération Chef de Bureau :\n\n'+c.slice(0,4)+'-'+c.slice(4)+'\n\nGardez-le en lieu sûr !');}
 // ======== CLOSE MODALS ========
-document.getElementById('saisieModal').addEventListener('click',function(e){if(e.target===this)closeSaisieModal();});
 document.getElementById('detailModal').addEventListener('click',function(e){if(e.target===this)closeDetail();});
 document.getElementById('confirmModal').addEventListener('click',function(e){if(e.target===this)closeConfirm();});
 document.getElementById('choixTypeModal').addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden');});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSaisieModal();closeDetail();closeConfirm();document.getElementById('choixTypeModal').classList.add('hidden');}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeConfirm();document.getElementById('choixTypeModal').classList.add('hidden');}});
 if(window._fbReady){startMaintenanceListener();}else{document.addEventListener('firebase-ready',()=>startMaintenanceListener(),{once:true});}
 </script>
 </body>
