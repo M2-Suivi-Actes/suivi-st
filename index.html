@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r18';
+  var APP_BUILD='2026-08-14-r21';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -1563,6 +1563,18 @@ function mergeEntriesForExploitation(exploitationValue, docsArray){
   });
 }
 let allEntriesLoadedThisSession=false;
+async function forceRefreshExploitation(value){
+  const db=getDB(); if(!db||!value) return false;
+  try{
+    const q=window._query(window._collection(db,'entries'), window._where('exploitation','==',value));
+    const snap=await window._getDocs(q);
+    const docsArr=[]; snap.forEach(doc=>docsArr.push(doc.data()));
+    mergeEntriesForExploitation(value, docsArr);
+    loadedExploitations.add(value);
+    saveState();
+    return true;
+  }catch(e){ console.error('force refresh exploitation:', e); return false; }
+}
 async function ensureExploitationLoaded(value){
   const db=getDB(); if(!db) return;
   if(!value){
@@ -1698,13 +1710,13 @@ async function fbLoadAll() {
 }
 async function fbSyncEntry(sheetName, entry) {
   const ok = await fbSaveEntry(sheetName, entry);
-  if (ok) showSyncBadge(true);
-  else showSyncBadge(false);
+  showSyncBadge(ok);
+  return ok;
 }
 async function fbDeleteSync(sheetName, numeroST) {
   const ok = await fbDeleteEntry(sheetName, numeroST);
-  if (ok) showSyncBadge(true);
-  else showSyncBadge(false);
+  showSyncBadge(ok);
+  return ok;
 }
 async function fbLoadMvtPolicy(){
   try{
@@ -2119,9 +2131,20 @@ function dr(l,v){return`<div class="dr"><span class="dl">${l}</span><span class=
 function closeDetail(){document.getElementById('detailModal').classList.add('hidden');curDetail=null;}
 function editFromDetail(){if(curDetail){const r=curDetail;closeDetail();openEdit(r);}}
 // ======== DELETE ========
-function askDel(r){
+async function askDel(r){
   if(typeof r==='string')r=JSON.parse(r);const ow=ownerOf(r);
   if(!canDel(r)){toast(`Seul ${ow||'le propriétaire'} ou le Chef de Bureau peut supprimer.`,'error');return;}
+  if(window._fbReady && r.exploitation){
+    const targetId=r._id||stableEntryId(ow,r);
+    await forceRefreshExploitation(r.exploitation);
+    const fresh=(state.sheets[ow]||[]).find(x=>(x._id||stableEntryId(ow,x))===targetId);
+    if(!fresh){
+      toast("Cette entrée n'existe plus ou a déjà été supprimée ailleurs — la liste a été actualisée.",'error');
+      refreshCurrentPage();
+      return;
+    }
+    r=fresh;
+  }
   document.getElementById('confirmMsg').innerHTML=`ST N° <strong>${escHtml(String(r.numero_st||'—'))}</strong> — ${escHtml(r.sigle||'—')} / Paquet ${escHtml(r.paquet||'—')} — <strong>${(r.actes||[]).length} acte(s)</strong>.`;
   confirmCb=()=>doDel(r);
   document.getElementById('confirmOkBtn').onclick=()=>{confirmCb&&confirmCb();closeConfirm();};
@@ -2219,12 +2242,23 @@ function updateReqFields(){
   document.getElementById('paquetReqMark').style.display=isC?'none':'';
   document.getElementById('paquetHint').textContent=isC?'Max 6 car. (optionnel)':'Max 6 car.';
 }
-function openEdit(r){
+async function openEdit(r){
   if(typeof r==='string')r=JSON.parse(r);const ow=ownerOf(r);
   if(!canEdit(r)){toast(`Modification impossible. Seul ${ow||'le propriétaire'} ou le Chef de Bureau peut modifier.`,'error');return;}
+  if(window._fbReady && r.exploitation){
+    const targetId=r._id||stableEntryId(ow,r);
+    await forceRefreshExploitation(r.exploitation);
+    const fresh=(state.sheets[ow]||[]).find(x=>(x._id||stableEntryId(ow,x))===targetId);
+    if(!fresh){
+      toast("Cette entrée n'existe plus ou a déjà été modifiée ailleurs — la liste a été actualisée.",'error');
+      refreshCurrentPage();
+      return;
+    }
+    r=fresh;
+  }
   selectedActeType = r.type_acte || 'SGSP';
   applySaisieTypeStyle(selectedActeType);
-  editEntry={sheetName:ow,numero_st:r.numero_st,_id:r._id||stableEntryId(ow,r)};
+  editEntry={sheetName:ow,numero_st:r.numero_st,_id:r._id||stableEntryId(ow,r),createdBy:r.createdBy||ow};
   acteRows=(r.actes||[{im:'',mvt:'',chapitre:''}]).map(a=>({...a}));
   document.getElementById('saisieModalTitle').innerHTML=`Modifier ST N° <span style="color:var(--accent)">${escHtml(String(r.numero_st||'—'))}</span>`;
   document.getElementById('saisieSubmitLabel').textContent='Enregistrer modifications';
@@ -2341,9 +2375,17 @@ async function fbCheckActeIndex(im,mvt,chapitre,year){
 async function fbSaveActeIndex(im,mvt,chapitre,year,info){
   try{
     const db=getDB(); if(!db) return false;
-    await window._setDoc(window._doc(db,'actes_index',acteIndexKey(im,mvt,chapitre,year)), {...info, updatedAt:new Date().toISOString()});
+    await window._setDoc(window._doc(db,'actes_index',acteIndexKey(im,mvt,chapitre,year)), {im,mvt,chapitre:chapitre||'',year, ...info, updatedAt:new Date().toISOString()});
     return true;
   }catch(e){ console.error('FB acte index save:', e); return false; }
+}
+async function fbSearchByMatricule(im){
+  try{
+    const db=getDB(); if(!db) return [];
+    const snap=await window._getDocs(window._query(window._collection(db,'actes_index'), window._where('im','==',im)));
+    const results=[]; snap.forEach(doc=>results.push(doc.data()));
+    return results;
+  }catch(e){ console.error('FB search matricule:', e); return []; }
 }
 async function fbDeleteActeIndex(im,mvt,chapitre,year){
   try{
@@ -2471,7 +2513,7 @@ async function submitSaisie(){
 async function finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId){
   const resp=document.getElementById('fRespCESP').value||'????';
   const dc=(resp!=='????'&&resp!=='Auto'&&!resp.includes('trouvé'))?(document.getElementById('fDateCESP').value||''):'';
-  const entry={_id:entryId,date_dcsac:dd,numero_st:nst,sigle:si||'',paquet:pa?pa.toUpperCase():'',edition:ed,exploitation:ex,resp_cesp:resp==='Auto'||resp.includes('trouvé')?'????':resp,date_cesp:dc,createdBy:editEntry?(curDetail?.createdBy||cu.name):cu.name,type_acte:selectedActeType||'SGSP',actes:acteRows.map(a=>({im:a.im.trim(),mvt:a.mvt,chapitre:a.chapitre||''}))};
+  const entry={_id:entryId,date_dcsac:dd,numero_st:nst,sigle:si||'',paquet:pa?pa.toUpperCase():'',edition:ed,exploitation:ex,resp_cesp:resp==='Auto'||resp.includes('trouvé')?'????':resp,date_cesp:dc,createdBy:editEntry?(editEntry.createdBy||cu.name):cu.name,type_acte:selectedActeType||'SGSP',actes:acteRows.map(a=>({im:a.im.trim(),mvt:a.mvt,chapitre:a.chapitre||''}))};
   state.lastExploitation=ex;
   registerNewChapitresFromActes(entry.actes);
   if(!state.sheets[sh])state.sheets[sh]=[];
@@ -2492,10 +2534,8 @@ async function finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId){
   if(wasEdit){closeSaisieModal();}else{resetSaisieFormKeepDate(dd);}
 }
 // ======== RECHERCHE ========
-function doSearch(){
-  const q=document.getElementById('searchInput').value.trim();const res=document.getElementById('searchResults');
-  if(!q){res.innerHTML='';return;}
-  const found=allData().filter(r=>String(r.numero_st||'').includes(q)||String(r.sigle||'').toLowerCase().includes(q.toLowerCase())||(r.actes||[]).some(a=>String(a.im).includes(q)));
+function renderSearchResults(found, q){
+  const res=document.getElementById('searchResults');
   if(!found.length){res.innerHTML=`<div class="alert ai2">Aucun résultat pour "${escHtml(q)}"</div>`;return;}
   const isC=cu.role==='chef';
   res.innerHTML=`<div class="table-wrap"><div class="table-toolbar"><span class="tsm tm">${found.length} résultat(s)</span></div><div class="table-scroll">
@@ -2507,6 +2547,46 @@ function doSearch(){
       <td><span class="eb">${escHtml(r.exploitation||'—')}</span></td><td>${rb(r.resp_cesp)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">${canEdit(r)?`<button class="be" onclick="openEdit(${escJ(r)})">✏</button>`:''}${canDel(r)?`<button class="bdel" onclick="askDel(${escJ(r)})" style="margin-left:4px">🗑</button>`:''}</td>
     </tr>`).join('')}</tbody></table></div></div>`;
+}
+function searchLocal(q){
+  return allData().filter(r=>String(r.numero_st||'').includes(q)||String(r.sigle||'').toLowerCase().includes(q.toLowerCase())||(r.actes||[]).some(a=>String(a.im).includes(q)));
+}
+async function doSearch(){
+  const q=document.getElementById('searchInput').value.trim();const res=document.getElementById('searchResults');
+  if(!q){res.innerHTML='';return;}
+  renderSearchResults(searchLocal(q), q);
+  // Si la requête ressemble à un Numéro ST exact, on vérifie systématiquement sur la base de données —
+  // sans se fier au cache local, même si ce mois a déjà été consulté avant (il pourrait avoir changé depuis).
+  if(window._fbReady && /^\d+$/.test(q)){
+    try{
+      const db=getDB();
+      if(db){
+        const nst=parseInt(q);
+        const snap=await window._getDocs(window._query(window._collection(db,'entries'), window._where('numero_st','==',nst)));
+        const exploitationsFound=new Set();
+        snap.forEach(doc=>{ const d=doc.data(); if(d.exploitation) exploitationsFound.add(d.exploitation); });
+        for(const ex of exploitationsFound){ await forceRefreshExploitation(ex); }
+        if(exploitationsFound.size && document.getElementById('searchInput').value.trim()===q){
+          renderSearchResults(searchLocal(q), q);
+        }
+      }
+    }catch(e){ console.error('search fb lookup:', e); }
+  }
+  // Si la requête ressemble à un matricule valide (7 chiffres, ou 1 lettre + 6 chiffres), on vérifie
+  // aussi systématiquement via l'index dédié — le matricule est niché dans une liste d'actes,
+  // non interrogeable directement sur la collection principale.
+  const looksLikeMatricule=/^\d{7}$/.test(q)||/^[A-Za-z]\d{6}$/.test(q);
+  if(window._fbReady && looksLikeMatricule){
+    try{
+      const matches=await fbSearchByMatricule(q);
+      const exploitationsFound=new Set();
+      matches.forEach(m=>{ if(m.exploitation) exploitationsFound.add(m.exploitation); });
+      for(const ex of exploitationsFound){ await forceRefreshExploitation(ex); }
+      if(exploitationsFound.size && document.getElementById('searchInput').value.trim()===q){
+        renderSearchResults(searchLocal(q), q);
+      }
+    }catch(e){ console.error('search fb lookup matricule:', e); }
+  }
 }
 // ======== RAPPORTS ========
 function renderRapports(){
