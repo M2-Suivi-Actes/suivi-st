@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r25';
+  var APP_BUILD='2026-08-14-r26';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -1987,7 +1987,25 @@ function renderActeBanner(){
     const lead=isMe?'Vous avez enregistré':'A enregistré';
     el.innerHTML=`<span class="bn-name">${escHtml(name)}</span><span class="bn-text">${lead} <span class="bn-num">${total} Actes</span> durant l'exploitation <b>${escHtml(exLabel)}</b> dont <b>${sgsp} SGSP</b> et <b>${sig} SIGSOLDE</b></span>`;
   }
+  fitBannerText();
 }
+function fitBannerText(){
+  const el=document.getElementById('acteBanner'); if(!el||!el.offsetParent) return;
+  const containerWidth=el.clientWidth-28; // marge de sécurité (padding intérieur)
+  if(containerWidth<=0) return;
+  [el.querySelector('.bn-name'),el.querySelector('.bn-text')].forEach(node=>{
+    if(!node) return;
+    node.style.fontSize='';
+    let fontSize=parseFloat(getComputedStyle(node).fontSize);
+    let i=0;
+    while(node.scrollWidth>containerWidth && fontSize>8 && i<40){
+      fontSize-=0.5;
+      node.style.fontSize=fontSize+'px';
+      i++;
+    }
+  });
+}
+window.addEventListener('resize', ()=>{ if(document.getElementById('acteBanner')?.offsetParent) fitBannerText(); });
 function setDashExploit(v){dashF.exploitation=v||null;dashF.stat=null;userExploitationOverride=true;ensureExploitationLoaded(v||'');renderDash();}
 function toggleDashEdition(e){dashF.edition=dashF.edition===e?null:e;dashF.stat=null;renderDash();}
 function toggleDashType(t){dashF.type=dashF.type===t?null:t;dashF.stat=null;renderDash();}
