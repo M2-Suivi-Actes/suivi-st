@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r21';
+  var APP_BUILD='2026-08-14-r25';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -45,7 +45,7 @@
 <meta http-equiv="Expires" content="0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://www.gstatic.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com wss://*.firebaseio.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://www.gstatic.com https://*.googleapis.com;">
 <title>ENREGISTREMENT DES ACTES M2</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--border2:#21262d;
@@ -136,6 +136,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 .ed-n{background:var(--ed-n-bg);color:var(--ed-n);border:1px solid rgba(47,129,247,.2)}
 .ed-s{background:var(--ed-s-bg);color:var(--ed-s);border:1px solid rgba(210,153,34,.2)}
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+@keyframes bnGradient{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes bnPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+@keyframes bnGlow{0%,100%{box-shadow:0 0 18px 0 rgba(47,129,247,.35),0 4px 16px rgba(0,0,0,.25)}50%{box-shadow:0 0 30px 6px rgba(210,153,34,.4),0 4px 20px rgba(0,0,0,.3)}}
+.acte-banner{position:relative;overflow:hidden;border-radius:var(--radius);padding:26px 24px;margin-bottom:16px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;width:100%;
+  background:linear-gradient(120deg,var(--accent),var(--accent2),var(--purple),var(--orange),var(--accent));
+  background-size:300% 300%;animation:bnGradient 8s ease infinite,bnGlow 3s ease-in-out infinite;
+  color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)}
+.acte-banner .bn-name{display:block;font-family:'Poppins',var(--font);font-size:clamp(18px,4.2vw,26px);font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;white-space:nowrap}
+.acte-banner .bn-text{display:block;font-family:'Poppins',var(--font);font-size:clamp(10px,2.6vw,16px);font-weight:500;line-height:1.6;white-space:nowrap}
+.acte-banner .bn-num{display:inline-block;font-family:'Poppins',var(--font);font-weight:800;font-size:1.3em;animation:bnPulse 1.6s ease-in-out infinite}
+@media(max-width:520px){.acte-banner{padding:18px 12px}}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;min-height:90px}
 .stat-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .stat-card.af{border-color:var(--accent);box-shadow:0 0 0 2px rgba(47,129,247,.2)}
@@ -703,6 +715,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
           <button onclick="clearDashFilters()" id="btnClearDash" class="btn bs txs hidden" style="padding:4px 10px">✕ Tout</button>
         </div>
         <div class="stats-grid" id="dashStats"></div>
+        <div id="acteBanner" class="acte-banner"></div>
         <div class="st2"><span id="dashTableTitle">Activité récente</span></div>
         <div class="table-wrap">
           <div class="table-toolbar">
@@ -1947,7 +1960,33 @@ function renderDash(){
     <div class="stat-card sg ${dashF.stat==='asgn'?'af':''}" onclick="setDashStat('asgn')"><div class="stat-label">Assignés</div><div class="stat-value">${asgn}</div><div class="stat-sub">${pct}% du total</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir assignés</div></div>
     <div class="stat-card so ${dashF.stat==='pend'?'af':''}" onclick="setDashStat('pend')"><div class="stat-label">En attente</div><div class="stat-value">${pend}</div><div class="stat-sub">Sans responsable</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir</div></div>
     <div class="stat-card sp ${dashF.stat==='mine'?'af':''}" onclick="setDashStat('mine')"><div class="stat-label">Mes entrées</div><div class="stat-value">${mineCount}</div><div class="stat-sub">Mes créations</div><div style="font-size:10px;color:var(--text3);margin-top:4px">▶ Voir</div></div>`;
+  renderActeBanner();
   renderDashTable(base);
+}
+function renderActeBanner(){
+  const el=document.getElementById('acteBanner'); if(!el) return;
+  let rows=allData();
+  if(dashF.exploitation) rows=rows.filter(r=>r.exploitation===dashF.exploitation);
+  const exLabel=dashF.exploitation||'toutes les périodes';
+  const isTeam=!dashF.comptable;
+  let subjectRows=rows, name=null;
+  if(!isTeam){
+    subjectRows=rows.filter(r=>r._sh===dashF.comptable||r.createdBy===dashF.comptable);
+    name=dashF.comptable==='CHEF_BUREAU'?'CHEF DE BUREAU':dashF.comptable;
+  }
+  let total=0,sgsp=0,sig=0;
+  subjectRows.forEach(r=>{
+    const n=(r.actes||[]).length;
+    total+=n;
+    if(r.type_acte==='SIGSOLDE') sig+=n; else sgsp+=n;
+  });
+  if(isTeam){
+    el.innerHTML=`<span class="bn-name">La Team M2</span><span class="bn-text">a traité <span class="bn-num">${total} Actes</span> durant l'exploitation <b>${escHtml(exLabel)}</b></span>`;
+  } else {
+    const isMe=dashF.comptable===cu.name;
+    const lead=isMe?'Vous avez enregistré':'A enregistré';
+    el.innerHTML=`<span class="bn-name">${escHtml(name)}</span><span class="bn-text">${lead} <span class="bn-num">${total} Actes</span> durant l'exploitation <b>${escHtml(exLabel)}</b> dont <b>${sgsp} SGSP</b> et <b>${sig} SIGSOLDE</b></span>`;
+  }
 }
 function setDashExploit(v){dashF.exploitation=v||null;dashF.stat=null;userExploitationOverride=true;ensureExploitationLoaded(v||'');renderDash();}
 function toggleDashEdition(e){dashF.edition=dashF.edition===e?null:e;dashF.stat=null;renderDash();}
