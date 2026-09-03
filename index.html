@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r27';
+  var APP_BUILD='2026-08-14-r33';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -208,13 +208,15 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 .aw::-webkit-scrollbar-track{background:var(--surface2)}
 .aw::-webkit-scrollbar-thumb{background:var(--text3);border-radius:4px}
 .aw::-webkit-scrollbar-thumb:hover{background:var(--accent)}
-.ah{display:grid;grid-template-columns:26px 1fr 110px 110px 30px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.ah{display:grid;grid-template-columns:26px 1fr 90px 1fr 30px;column-gap:10px;background:var(--surface2);border-bottom:1px solid var(--border)}
 .ahc{padding:7px 8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)}
-.ar2{display:grid;grid-template-columns:26px 1fr 110px 110px 30px;border-bottom:1px solid var(--border2);align-items:center}
+.ar2{display:grid;grid-template-columns:26px 1fr 90px 1fr 30px;column-gap:10px;border-bottom:1px solid var(--border2);align-items:center}
 .ar2:last-child{border-bottom:none}.ar2:hover{background:var(--accent-tint)}
 .an{padding:5px 8px;font-size:11px;color:var(--text3);font-family:var(--font-mono);text-align:center}
 .ac{padding:2px 3px}
 .ac input,.ac select{background:transparent;border:none;border-radius:3px;color:var(--text);font-size:13px;font-family:var(--font-mono);width:100%;padding:6px;outline:none;min-height:36px}
+.ac select[id^="aMVT_"]{text-align:center;text-align-last:center}
+.ac select[id^="aCH_"]{text-align:right;text-align-last:right}
 .ac input:focus,.ac select:focus{background:var(--surface2);border:1px solid var(--accent)}
 .ac input::placeholder{color:var(--text3)}
 .adel{display:flex;justify-content:center;padding:0 4px}
@@ -863,7 +865,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
         <div style="margin-bottom:8px">
           <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">Actes — IM / MVT / Chapitre</div>
         </div>
-        <div class="aw"><div class="ah"><div class="ahc" style="text-align:center">#</div><div class="ahc">IM *</div><div class="ahc">MVT *</div><div class="ahc">Chapitre</div><div class="ahc"></div></div><div id="actesRows"></div></div>
+        <div class="aw"><div class="ah"><div class="ahc" style="text-align:center">#</div><div class="ahc">IM *</div><div class="ahc" style="text-align:center">MVT *</div><div class="ahc" style="text-align:right">Chapitre</div><div class="ahc"></div></div><div id="actesRows"></div></div>
         <div class="af2"><span id="actesCount" style="color:var(--text3)">0 / 10 actes</span><span id="actesWarn" class="hidden" style="color:var(--orange)">⚠ Max 10 actes</span></div>
         <div style="display:flex;justify-content:flex-end;margin-top:10px">
           <button class="btn bsu" style="padding:6px 14px;font-size:13px" onclick="addActeRow()">Ajouter Acte(s)</button>
@@ -2715,6 +2717,13 @@ async function exportRapport1(){
   const headerRow=ws.addRow(['Sigle','Paquet','IM','Mouvement','Chapitre','Observations']);
   headerRow.eachCell(c=>{c.font={bold:true};c.alignment={horizontal:'center',vertical:'middle'};});
   headerRow.height=18;
+
+  // Répète le titre ET la ligne d'en-tête en haut de chaque page à l'impression
+  ws.pageSetup.printTitlesRow='1:2';
+
+  // Pied de page avec la pagination (ex: "Page 1 sur 2")
+  ws.headerFooter.oddFooter='&CPage &P sur &N';
+  ws.headerFooter.evenFooter='&CPage &P sur &N';
 
   // Données, centrées
   data.forEach(st=>(st.actes||[]).forEach(a=>{
