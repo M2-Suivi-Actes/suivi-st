@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r33';
+  var APP_BUILD='2026-08-14-r40';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -859,7 +859,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
       <div class="fc">
         <div class="fct">Information des Actes</div>
         <div class="form-grid" style="margin-bottom:14px">
-          <div class="fg"><label class="fl" id="fSigleLabel">Sigle <span class="req" id="sigleReqMark">*</span></label><input type="text" id="fSigle" class="fi" placeholder="ex: 605" maxlength="6" oninput="validateSP()" style="font-family:var(--font-mono)" /><div class="hint" id="sigleHint">Max 6 chiffres</div></div>
+          <div class="fg"><label class="fl" id="fSigleLabel">Sigle <span class="req" id="sigleReqMark">*</span></label><input type="text" id="fSigle" class="fi" placeholder="ex: 605R21" maxlength="6" oninput="validateSP()" style="font-family:var(--font-mono);text-transform:uppercase" /><div class="hint" id="sigleHint">Max 6 caractères</div></div>
           <div class="fg"><label class="fl" id="fPaquetLabel">Paquet <span class="req" id="paquetReqMark">*</span></label><input type="text" id="fPaquet" class="fi" placeholder="ex: 01, 2A" maxlength="6" oninput="validateSP()" style="font-family:var(--font-mono)" /><div class="hint" id="paquetHint">Max 6 car.</div></div>
         </div>
         <div style="margin-bottom:8px">
@@ -2300,7 +2300,7 @@ function updateReqFields(){
   const isC=cu&&cu.role==='chef';
   document.getElementById('fSTLabel').innerHTML=isC?'Numéro ST <span style="color:var(--text3);font-size:10px">(optionnel)</span>':'Numéro ST <span class="req">*</span>';
   document.getElementById('sigleReqMark').style.display=isC?'none':'';
-  document.getElementById('sigleHint').textContent=isC?'Max 6 chiffres (optionnel)':'Max 6 chiffres';
+  document.getElementById('sigleHint').textContent=isC?'Max 6 caractères (optionnel)':'Max 6 caractères';
   document.getElementById('paquetReqMark').style.display=isC?'none':'';
   document.getElementById('paquetHint').textContent=isC?'Max 6 car. (optionnel)':'Max 6 car.';
 }
@@ -2362,12 +2362,12 @@ function validateSP(){
   const isC=cu&&cu.role==='chef';
   const sh=document.getElementById('sigleHint'),sI=document.getElementById('fSigle');
   const ph=document.getElementById('paquetHint'),pI=document.getElementById('fPaquet');
-  if(!si){sh.textContent=isC?'Max 6 chiffres (optionnel)':'Max 6 chiffres';sh.className='hint';sI.className='fi';}
-  else if(!/^\d{1,6}$/.test(si)){sh.textContent='⚠ 6 chiffres maximum';sh.className='hint err';sI.className='fi err';}
+  if(!si){sh.textContent=isC?'Max 6 caractères (optionnel)':'Max 6 caractères';sh.className='hint';sI.className='fi';}
+  else if(!/^[A-Za-z0-9]{1,6}$/.test(si)){sh.textContent='⚠ Max 6 caractères';sh.className='hint err';sI.className='fi err';}
   else{sh.textContent='✓';sh.className='hint ok';sI.className='fi ok';}
   if(!pa){ph.textContent=isC?'Max 6 car. (optionnel)':'Max 6 car.';ph.className='hint';pI.className='fi';}
   else if(!/^[A-Za-z0-9]{1,6}$/.test(pa)){ph.textContent='⚠ Max 6 car.';ph.className='hint err';pI.className='fi err';}
-  else if(ex&&si&&/^\d{1,6}$/.test(si)&&ed){
+  else if(ex&&si&&/^[A-Za-z0-9]{1,6}$/.test(si)&&ed){
     const dup=allData().find(r=>r.sigle===si&&r.paquet&&r.paquet.toUpperCase()===pa.toUpperCase()&&r.exploitation===ex&&r.edition===ed&&(!editEntry||r.numero_st!==editEntry.numero_st));
     if(dup){ph.textContent=`⚠ Déjà utilisé pour ${ed} ${ex}`;ph.className='hint err';pI.className='fi err';}
     else{ph.textContent='✓ Disponible';ph.className='hint ok';pI.className='fi ok';}
@@ -2524,7 +2524,7 @@ async function submitSaisie(){
   const isSIG=selectedActeType==='SIGSOLDE';
   const sv=isSIG?'':document.getElementById('fNumeroST').value;
   const nst=sv?parseInt(sv):null;
-  const si=document.getElementById('fSigle').value.trim();
+  const si=document.getElementById('fSigle').value.trim().toUpperCase();
   const pa=document.getElementById('fPaquet').value.trim();
   const ed=document.getElementById('fEdition').value;
   const ex=document.getElementById('fExploitation').value;
@@ -2542,8 +2542,8 @@ async function submitSaisie(){
   }
   if(dupST)errs.push(`ST ${nst} déjà utilisé`);
   if(!ed)errs.push("Type d'édition requis");if(!ex)errs.push('Exploitation requise');
-  if(!isC&&!/^\d{1,6}$/.test(si))errs.push('Sigle: 6 chiffres maximum');
-  if(si&&!/^\d{1,6}$/.test(si))errs.push('Sigle: 6 chiffres maximum');
+  if(!isC&&!/^[A-Za-z0-9]{1,6}$/.test(si))errs.push('Sigle: 6 caractères maximum');
+  if(si&&!/^[A-Za-z0-9]{1,6}$/.test(si))errs.push('Sigle: 6 caractères maximum');
   if(!isC&&!/^[A-Za-z0-9]{1,6}$/.test(pa))errs.push('Paquet: max 6 car.');
   if(pa&&!/^[A-Za-z0-9]{1,6}$/.test(pa))errs.push('Paquet: max 6 car.');
   if(acteRows.length===0)errs.push('Au moins un acte requis');
@@ -2721,6 +2721,16 @@ async function exportRapport1(){
   // Répète le titre ET la ligne d'en-tête en haut de chaque page à l'impression
   ws.pageSetup.printTitlesRow='1:2';
 
+  // Marges réalistes pour une impression physique fiable (0,4cm était refusé par la plupart des imprimantes,
+  // qui repartaient sur leur marge par défaut ~1,9cm), avec un vrai espace réservé au pied de page pour éviter
+  // qu'il ne chevauche la dernière ligne du tableau. Centrage horizontal conservé.
+  ws.pageSetup.margins={left:0.4,right:0.4,top:0.394,bottom:0.394,header:0.15,footer:0.15};
+  ws.pageSetup.horizontalCentered=true;
+  // Force l'échelle à 100% et désactive l'ajustement automatique — sans ça, Excel réduisait
+  // silencieusement à ~95% pour "faire tenir" le contenu, ce qui décalait aussi les marges.
+  ws.pageSetup.fitToPage=false;
+  ws.pageSetup.scale=100;
+
   // Pied de page avec la pagination (ex: "Page 1 sur 2")
   ws.headerFooter.oddFooter='&CPage &P sur &N';
   ws.headerFooter.evenFooter='&CPage &P sur &N';
@@ -2754,7 +2764,7 @@ async function exportRapport2(){
     if(ty) d=d.filter(r=>r.type_acte===ty);
     rows.push([c==='CHEF_BUREAU'?'Chef':c,d.reduce((s,r)=>s+(r.actes||[]).length,0)]);
   });
-  const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:20},{wch:22}];XLSX.utils.book_append_sheet(wb,ws,'Rapport');XLSX.writeFile(wb,`Nb_Actes_${ed}_${ty||'tous'}_${pe.replace(/ /g,'_')}.xlsx`);toast('Rapport 2 exporté','success');
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:20},{wch:22}];ws['!margins']={left:0.4,right:0.4,top:0.394,bottom:0.394,header:0.15,footer:0.15};XLSX.utils.book_append_sheet(wb,ws,'Rapport');XLSX.writeFile(wb,`Nb_Actes_${ed}_${ty||'tous'}_${pe.replace(/ /g,'_')}.xlsx`);toast('Rapport 2 exporté','success');
 }
 // ======== CESP ========
 function handleCESPFile(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});let hr=-1;for(let i=0;i<Math.min(json.length,5);i++){if(json[i].some(c=>typeof c==='string'&&c.toUpperCase().includes('DATE'))){hr=i;break;}}if(hr<0){document.getElementById('cespImportStatus').innerHTML='<div class="alert ae2">Structure non reconnue.</div>';return;}const hdrs=json[hr].map(h=>String(h||'').trim().toUpperCase());const di=hdrs.findIndex(h=>h.includes('DATE'));const rc=RESP.map(r=>({name:r,idx:hdrs.findIndex(h=>h===r)}));const parsed=[];for(let i=hr+1;i<json.length;i++){const row=json[i];if(!row[di])continue;const obj={date_cesp:row[di]};rc.forEach(r=>{if(r.idx>=0){const v=parseInt(row[r.idx]);obj[r.name]=isNaN(v)?null:v;}else obj[r.name]=null;});parsed.push(obj);}pendingCESP=parsed;document.getElementById('cespImportStatus').innerHTML=`<div class="alert as2">✓ ${parsed.length} lignes détectées.</div>`;const prev=parsed.slice(0,8);document.getElementById('cespImportPreview').innerHTML=`<div class="table-wrap" style="max-height:200px;overflow-y:auto"><div class="table-scroll"><table><thead><tr><th>Date</th>${RESP.map(r=>`<th>${r}</th>`).join('')}</tr></thead><tbody>${prev.map(r=>`<tr><td class="mono" style="color:var(--accent)">${escHtml(String(r.date_cesp))}</td>${RESP.map(rs=>`<td class="mono">${r[rs]||'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${parsed.length>8?`<div style="padding:8px 12px;font-size:11px;color:var(--text3)">...et ${parsed.length-8} lignes</div>`:''}</div>`;document.getElementById('cespImportActions').style.display='';}catch(err){document.getElementById('cespImportStatus').innerHTML=`<div class="alert ae2">Erreur: ${escHtml(err.message)}</div>`;}};reader.readAsArrayBuffer(file);}
@@ -2901,8 +2911,8 @@ async function runExcelImport(){
     if(!mvts.length){warnings.push(`Ligne ${rowNum}: MVT manquant — ignorée`);return;}
     if(!/^\d{7}$/.test(imRaw)&&!/^[A-Za-z]\d{6}$/.test(imRaw))warnings.push(`Ligne ${rowNum}: IM "${escHtml(imRaw)}" au format inhabituel (7 caractères attendus)`);
     const chapRaw=kChap?String(row[kChap]??'').trim():'';
-    const key=sigleRaw+'|'+paquetRaw.toUpperCase();
-    if(!groups[key])groups[key]={sigle:sigleRaw,paquet:paquetRaw.toUpperCase(),date:'',nst:'',actes:[]};
+    const key=sigleRaw.toUpperCase()+'|'+paquetRaw.toUpperCase();
+    if(!groups[key])groups[key]={sigle:sigleRaw.toUpperCase(),paquet:paquetRaw.toUpperCase(),date:'',nst:'',actes:[]};
     if(!groups[key].date&&kDate){const iso=excelDateToISO(row[kDate]);if(iso)groups[key].date=iso;}
     if(!groups[key].nst&&kNst){const n=String(row[kNst]??'').trim();if(n)groups[key].nst=n;}
     mvts.forEach(mv=>groups[key].actes.push({im:imRaw,mvt:mv,chapitre:chapRaw}));
