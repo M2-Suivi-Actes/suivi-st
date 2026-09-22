@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r40';
+  var APP_BUILD='2026-08-14-r43';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -208,9 +208,9 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 .aw::-webkit-scrollbar-track{background:var(--surface2)}
 .aw::-webkit-scrollbar-thumb{background:var(--text3);border-radius:4px}
 .aw::-webkit-scrollbar-thumb:hover{background:var(--accent)}
-.ah{display:grid;grid-template-columns:26px 1fr 90px 1fr 30px;column-gap:10px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.ah{display:grid;grid-template-columns:26px 1fr 90px 1fr 1.4fr 30px;column-gap:10px;background:var(--surface2);border-bottom:1px solid var(--border)}
 .ahc{padding:7px 8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)}
-.ar2{display:grid;grid-template-columns:26px 1fr 90px 1fr 30px;column-gap:10px;border-bottom:1px solid var(--border2);align-items:center}
+.ar2{display:grid;grid-template-columns:26px 1fr 90px 1fr 1.4fr 30px;column-gap:10px;border-bottom:1px solid var(--border2);align-items:center}
 .ar2:last-child{border-bottom:none}.ar2:hover{background:var(--accent-tint)}
 .an{padding:5px 8px;font-size:11px;color:var(--text3);font-family:var(--font-mono);text-align:center}
 .ac{padding:2px 3px}
@@ -284,9 +284,9 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 .type-tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;font-family:var(--font-mono);white-space:nowrap}
 .type-sgsp{background:var(--accent-tint);color:var(--accent);border:1px solid var(--accent-tint2)}
 .type-sigsolde{background:rgba(210,153,34,.12);color:var(--orange);border:1px solid rgba(210,153,34,.2)}
-.acte-detail-grid{display:grid;grid-template-columns:26px 1fr 80px 1fr;background:var(--surface2);border-bottom:1px solid var(--border)}
+.acte-detail-grid{display:grid;grid-template-columns:26px 1fr 80px 1fr 1.6fr;background:var(--surface2);border-bottom:1px solid var(--border)}
 .acte-detail-grid-item{padding:5px 8px;font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text3)}
-.acte-detail-row{display:grid;grid-template-columns:26px 1fr 80px 1fr;border-bottom:1px solid var(--border2)}
+.acte-detail-row{display:grid;grid-template-columns:26px 1fr 80px 1fr 1.6fr;border-bottom:1px solid var(--border2)}
 .acte-detail-row > div{padding:6px 8px;font-size:12px;font-family:var(--font-mono)}
 .acte-detail-row .mvt-badge{font-size:11px}
 #firstLoginScreen{
@@ -865,7 +865,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
         <div style="margin-bottom:8px">
           <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">Actes — IM / MVT / Chapitre</div>
         </div>
-        <div class="aw"><div class="ah"><div class="ahc" style="text-align:center">#</div><div class="ahc">IM *</div><div class="ahc" style="text-align:center">MVT *</div><div class="ahc" style="text-align:right">Chapitre</div><div class="ahc"></div></div><div id="actesRows"></div></div>
+        <div class="aw"><div class="ah"><div class="ahc" style="text-align:center">#</div><div class="ahc">IM *</div><div class="ahc" style="text-align:center">MVT *</div><div class="ahc" style="text-align:right">Chapitre</div><div class="ahc">Remarque</div><div class="ahc"></div></div><div id="actesRows"></div></div>
         <div class="af2"><span id="actesCount" style="color:var(--text3)">0 / 10 actes</span><span id="actesWarn" class="hidden" style="color:var(--orange)">⚠ Max 10 actes</span></div>
         <div style="display:flex;justify-content:flex-end;margin-top:10px">
           <button class="btn bsu" style="padding:6px 14px;font-size:13px" onclick="addActeRow()">Ajouter Acte(s)</button>
@@ -1841,12 +1841,12 @@ async function generateGlobalBackup(){
     snap.forEach(doc=>{
       const d=doc.data();
       const comptable=d._sheet==='CHEF_BUREAU'?'Chef de Bureau':(d._sheet||'');
-      const actes=(d.actes&&d.actes.length)?d.actes:[{im:'',mvt:'',chapitre:''}];
+      const actes=(d.actes&&d.actes.length)?d.actes:[{im:'',mvt:'',chapitre:'',remarque:''}];
       actes.forEach(a=>{
-        rows.push([comptable,d.exploitation||'',d.edition||'',d.numero_st??'',d.sigle||'',d.paquet||'',a.im||'',a.mvt||'',a.chapitre||'']);
+        rows.push([comptable,d.exploitation||'',d.edition||'',d.numero_st??'',d.sigle||'',d.paquet||'',a.im||'',a.mvt||'',a.chapitre||'',a.remarque||'']);
       });
     });
-    const headers=['Comptable','Exploitation','Édition','Numéro ST','Sigle','Paquet','Matricule','MVT','Chapitre'];
+    const headers=['Comptable','Exploitation','Édition','Numéro ST','Sigle','Paquet','Matricule','MVT','Chapitre','Remarque'];
     const esc=v=>String(v??'').replace(/\t/g,' ').replace(/[\r\n]/g,' ');
     const lines=[headers.join('\t'), ...rows.map(r=>r.map(esc).join('\t'))];
     const content='\ufeff'+lines.join('\r\n'); // BOM pour un affichage correct des accents dans Excel
@@ -1864,8 +1864,17 @@ async function generateGlobalBackup(){
 async function buildActeIndexFromScratch(){
   if(!window._fbReady){toast('Base de données non disponible','error');return;}
   const db=getDB(); if(!db) return;
-  toast("Construction de l'index anti-doublons à partir de l'historique complet...",'success');
+  toast("Reconstruction complète de l'index anti-doublons...",'success');
   try{
+    // Étape 1 : vider entièrement l'index existant, pour éliminer d'éventuelles fiches périmées
+    // (ex: un acte retiré lors d'une modification, mais jamais désindexé à l'époque)
+    const oldSnap=await window._getDocs(window._collection(db,'actes_index'));
+    const oldIds=[]; oldSnap.forEach(doc=>oldIds.push(doc.id));
+    const DEL_CHUNK=25;
+    for(let i=0;i<oldIds.length;i+=DEL_CHUNK){
+      await Promise.all(oldIds.slice(i,i+DEL_CHUNK).map(id=>window._deleteDoc(window._doc(db,'actes_index',id))));
+    }
+    // Étape 2 : reconstruire entièrement à partir des actes réellement existants aujourd'hui
     const snap=await window._getDocs(window._collection(db,'entries'));
     const docs=[]; snap.forEach(doc=>docs.push(doc.data()));
     const tasks=[];
@@ -1884,7 +1893,7 @@ async function buildActeIndexFromScratch(){
       await Promise.all(tasks.slice(i,i+CHUNK).map(fn=>fn()));
       done=Math.min(i+CHUNK,tasks.length);
     }
-    toast(`✓ Index construit : ${done} acte(s) indexé(s) sur ${docs.length} entrée(s)`,'success');
+    toast(`✓ Index reconstruit : ${done} acte(s) indexé(s) sur ${docs.length} entrée(s) (${oldIds.length} ancienne(s) fiche(s) périmée(s) supprimée(s))`,'success');
   }catch(e){ console.error('Build acte index:', e); toast("Erreur lors de la construction de l'index",'error'); }
 }
 async function syncAllToFirebase(){
@@ -2172,12 +2181,14 @@ function showDetail(r){
       <div class="acte-detail-grid-item">IM</div>
       <div class="acte-detail-grid-item">MVT</div>
       <div class="acte-detail-grid-item">Chapitre</div>
+      <div class="acte-detail-grid-item">Remarque</div>
     </div>
     ${actes.map((a,i)=>`<div class="acte-detail-row" style="${i%2?'background:rgba(255,255,255,.02)':''}">
       <div style="text-align:center;color:var(--text3)">${i+1}</div>
       <div>${escHtml(a.im)}</div>
       <div><span class="badge bg2">${escHtml(a.mvt)}</span></div>
       <div style="color:var(--text2)">${escHtml(a.chapitre||'—')}</div>
+      <div style="color:var(--text2);font-family:var(--font);white-space:normal">${escHtml(a.remarque||'—')}</div>
     </div>`).join('')}
   </div>`;
   const ow=ownerOf(r);
@@ -2257,7 +2268,7 @@ function openSaisieWithType(type){
   selectedActeType = type;
   document.getElementById('choixTypeModal').classList.add('hidden');
   // Suite de l'ouverture de la saisie
-  editEntry=null;acteRows=[{im:'',mvt:'',chapitre:''}];
+  editEntry=null;acteRows=[{im:'',mvt:'',chapitre:'',remarque:''}];
   document.getElementById('saisieModalTitle').textContent='Nouvelle saisie Acte(s) '+type;
   applySaisieTypeStyle(type);
   document.getElementById('saisieSubmitLabel').textContent='Enregistrer';
@@ -2277,7 +2288,7 @@ function openSaisieWithType(type){
   document.getElementById('saisieModal').classList.remove('hidden');
 }
 function resetSaisieFormKeepDate(dd){
-  editEntry=null;acteRows=[{im:'',mvt:'',chapitre:''}];
+  editEntry=null;acteRows=[{im:'',mvt:'',chapitre:'',remarque:''}];
   document.getElementById('saisieModalTitle').textContent='Nouvelle saisie Acte(s) '+selectedActeType;
   applySaisieTypeStyle(selectedActeType);
   document.getElementById('saisieSubmitLabel').textContent='Enregistrer';
@@ -2320,7 +2331,7 @@ async function openEdit(r){
   }
   selectedActeType = r.type_acte || 'SGSP';
   applySaisieTypeStyle(selectedActeType);
-  editEntry={sheetName:ow,numero_st:r.numero_st,_id:r._id||stableEntryId(ow,r),createdBy:r.createdBy||ow};
+  editEntry={sheetName:ow,numero_st:r.numero_st,_id:r._id||stableEntryId(ow,r),createdBy:r.createdBy||ow,exploitation:r.exploitation,actes:(r.actes||[]).map(a=>({...a}))};
   acteRows=(r.actes||[{im:'',mvt:'',chapitre:''}]).map(a=>({...a}));
   document.getElementById('saisieModalTitle').innerHTML=`Modifier ST N° <span style="color:var(--accent)">${escHtml(String(r.numero_st||'—'))}</span>`;
   document.getElementById('saisieSubmitLabel').textContent='Enregistrer modifications';
@@ -2385,6 +2396,7 @@ function renderActesRows(){
       <select id="aCH_${i}" onchange="chapSel(${i},this.value)">${getChapO(acteRows[i].chapitre)}</select>
       <input type="text" id="aCHm_${i}" class="hidden" maxlength="10" placeholder="Saisir..." style="font-family:var(--font-mono);background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--text);font-size:12px;padding:5px 6px" oninput="acteRows[${i}].chapitre=this.value" />
     </div>
+    <div class="ac"><input type="text" maxlength="250" placeholder="Optionnel" value="${escHtml(acteRows[i].remarque||'')}" id="aRQ_${i}" oninput="acteRows[${i}].remarque=this.value" /></div>
     <div class="adel"><button class="adb" onclick="remActeRow(${i})">✕</button></div>
   </div>`).join('');
   document.getElementById('actesCount').textContent=`${acteRows.length} / 10 actes`;
@@ -2395,7 +2407,7 @@ function chapSel(i,v){if(v==='__m__'){document.getElementById(`aCHm_${i}`).class
 function addActeRow(){
   if(acteRows.length>=10){toast('Maximum 10 actes','error');return;}
   const last=acteRows.length>0?acteRows[acteRows.length-1]:null;
-  acteRows.push({im:last?last.im:'',mvt:'',chapitre:last?last.chapitre:''});
+  acteRows.push({im:last?last.im:'',mvt:'',chapitre:last?last.chapitre:'',remarque:''});
   renderActesRows();
   setTimeout(()=>{const el=document.getElementById(`aIM_${acteRows.length-1}`);if(el){el.focus();el.select();}},50);
 }
@@ -2575,7 +2587,7 @@ async function submitSaisie(){
 async function finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId){
   const resp=document.getElementById('fRespCESP').value||'????';
   const dc=(resp!=='????'&&resp!=='Auto'&&!resp.includes('trouvé'))?(document.getElementById('fDateCESP').value||''):'';
-  const entry={_id:entryId,date_dcsac:dd,numero_st:nst,sigle:si||'',paquet:pa?pa.toUpperCase():'',edition:ed,exploitation:ex,resp_cesp:resp==='Auto'||resp.includes('trouvé')?'????':resp,date_cesp:dc,createdBy:editEntry?(editEntry.createdBy||cu.name):cu.name,type_acte:selectedActeType||'SGSP',actes:acteRows.map(a=>({im:a.im.trim(),mvt:a.mvt,chapitre:a.chapitre||''}))};
+  const entry={_id:entryId,date_dcsac:dd,numero_st:nst,sigle:si||'',paquet:pa?pa.toUpperCase():'',edition:ed,exploitation:ex,resp_cesp:resp==='Auto'||resp.includes('trouvé')?'????':resp,date_cesp:dc,createdBy:editEntry?(editEntry.createdBy||cu.name):cu.name,type_acte:selectedActeType||'SGSP',actes:acteRows.map(a=>({im:a.im.trim(),mvt:a.mvt,chapitre:a.chapitre||'',remarque:(a.remarque||'').trim().slice(0,250)}))};
   state.lastExploitation=ex;
   registerNewChapitresFromActes(entry.actes);
   if(!state.sheets[sh])state.sheets[sh]=[];
@@ -2792,7 +2804,7 @@ function renderConfig(){
     h+=`<div class="fc"><div class="fct">Exploitation par défaut</div><div class="fg" style="max-width:240px"><label class="fl">Période courante</label><select id="configExploit" class="fs"></select></div><div class="fa"><button class="btn bp" onclick="saveConfig()">Enregistrer</button></div></div>`;
     h+=`<div class="fc"><div class="fct">Gestion des Chapitres</div><div class="alert ai2">🔥 Liste partagée : tout chapitre importé ou ajouté ici est synchronisé automatiquement et visible par tous les utilisateurs, en temps réel.</div><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px"><div class="fg"><label class="fl">Import Excel</label><div class="uz" onclick="document.getElementById('chapFI').click()" style="padding:12px 16px"><input type="file" id="chapFI" accept=".xlsx,.xls,.csv" onchange="handleChapFile(event)" style="display:none"><span style="font-size:12px;color:var(--text2)">📂 Sélectionner fichier chapitres</span></div></div><div class="fg"><label class="fl">Ajout manuel</label><div style="display:flex;gap:8px"><input type="text" id="newChap" class="fi" placeholder="ex: 750110" style="max-width:160px;font-family:var(--font-mono)" /><button class="btn bsu" onclick="addChap()">Ajouter</button></div></div></div><div id="chapList"></div></div>`;
     h+=`<div class="fc"><div class="fct" style="color:var(--green)">🔥 Base de données connectée</div><div class="alert as2">Les données sont synchronisées automatiquement avec la base de données. Aucune configuration supplémentaire nécessaire.</div><div id="configOdSt" style="margin-bottom:12px"></div><div class="fa"><button class="btn bp" onclick="fbLoadAll().then(()=>{renderDash();toast('Données rechargées','success')})">🔄 Recharger depuis la base de données</button><button class="btn bp" onclick="syncAllToFirebase()">📤 Sync complète vers la base de données</button><button class="btn bs" onclick="expData()">Exporter JSON</button></div></div>`;
-    h+=`<div class="fc"><div class="fct">Sauvegarde globale des données</div><div class="alert ai2" style="font-size:12px">Génère un fichier .txt (compatible Excel) listant tous les actes enregistrés : Comptable, Exploitation, Édition, Numéro ST, Sigle, Paquet, Matricule, MVT, Chapitre. Un rappel s'affiche automatiquement si la dernière sauvegarde date de plus de 3 mois — vous pouvez aussi la faire à tout moment.</div><div id="lastBackupInfo" style="font-size:12px;color:var(--text3);margin-bottom:10px">${state.config?.lastBackupAt?`Dernière sauvegarde : ${new Date(state.config.lastBackupAt).toLocaleDateString('fr-FR')}`:'Aucune sauvegarde effectuée pour le moment.'}</div><div class="fa"><button class="btn bp" onclick="generateGlobalBackup()">💾 Générer la sauvegarde (.txt)</button></div></div>`;
+    h+=`<div class="fc"><div class="fct">Sauvegarde globale des données</div><div class="alert ai2" style="font-size:12px">Génère un fichier .txt (compatible Excel) listant tous les actes enregistrés : Comptable, Exploitation, Édition, Numéro ST, Sigle, Paquet, Matricule, MVT, Chapitre, Remarque. Un rappel s'affiche automatiquement si la dernière sauvegarde date de plus de 3 mois — vous pouvez aussi la faire à tout moment.</div><div id="lastBackupInfo" style="font-size:12px;color:var(--text3);margin-bottom:10px">${state.config?.lastBackupAt?`Dernière sauvegarde : ${new Date(state.config.lastBackupAt).toLocaleDateString('fr-FR')}`:'Aucune sauvegarde effectuée pour le moment.'}</div><div class="fa"><button class="btn bp" onclick="generateGlobalBackup()">💾 Générer la sauvegarde (.txt)</button></div></div>`;
     h+=`<div class="fc"><div class="fct">Politique SGSP / SIGSOLDE par mouvement (MVT)</div><div class="alert ai2" style="font-size:12px">Sélectionnez les mouvements (MVT) qui doivent normalement être saisis sous <b>SIGSOLDE</b> — tous les autres seront considérés comme relevant de <b>SGSP</b>. Si aucun mouvement n'est sélectionné, aucune vérification n'est appliquée à la saisie.</div><div id="mvtPolicyGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div><div class="fa"><button class="btn bp" onclick="saveMvtPolicy()">Enregistrer la politique</button></div></div>`;
     h+=`<div class="fc"><div class="fct">Index anti-doublons (IM/MVT/Chapitre)</div><div class="alert ai2" style="font-size:12px">Détecte si un même mouvement (IM+MVT+Chapitre) a déjà été saisi ailleurs sous un autre Sigle/Paquet, sur la même année. À lancer une fois pour indexer l'historique déjà existant — les nouveaux actes s'indexent automatiquement.</div><div class="fa"><button class="btn bp" onclick="buildActeIndexFromScratch()">🔧 Construire l'index à partir de l'historique</button></div></div>`;
     h+=`<div class="fc"><div class="fct">📥 Import Excel — Répartition des actes</div><div class="alert ai2">Importez un fichier Excel (colonnes : <strong>DATE DCSAC, NUMERO ST, SIGLE, PAQUET, IM, MVT, CHAPITRE</strong>) et répartissez automatiquement les actes vers un comptable ou le Chef de Bureau. Les mouvements multiples dans une même cellule (ex: 28/63, 28-63, 28,63, 28 et 63) sont automatiquement séparés en actes distincts. La règle de 10 actes maximum par Sigle/Paquet est respectée — le surplus est réparti en entrées supplémentaires.</div>
