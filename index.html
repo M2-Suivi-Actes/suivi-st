@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-08-14-r43';
+  var APP_BUILD='2026-08-14-r44';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -1387,11 +1387,20 @@ async function fbLoadChapitres() {
     const snap = await window._getDocs(window._collection(db, 'chapitres'));
     const remote = new Set();
     snap.forEach(doc => remote.add(doc.id));
-    // Complète Firebase avec tout chapitre connu (par défaut dans le code ou déjà ajouté localement) mais absent côté serveur
-    const toPush = [...new Set([...CHAP_DEF, ...(state.chapitres||[])])].filter(c => !remote.has(c));
-    let pushedCount = 0;
-    for (const code of toPush) { const ok = await fbSaveChapitre(code); if (ok) { remote.add(code); pushedCount++; } }
-    if (pushedCount) touchVersion('chapitres');
+    // Amorçage UNIQUE : la liste par défaut du code n'est poussée qu'à la toute première initialisation.
+    // Ensuite la base de données fait foi — sinon un chapitre supprimé serait réinjecté par la liste par défaut
+    // ou par la copie locale périmée d'un autre appareil.
+    const seedRef = window._doc(db, 'meta', 'chapitres_seeded');
+    const seedSnap = await window._getDoc(seedRef);
+    if (!seedSnap.exists()) {
+      let pushedCount = 0;
+      if (remote.size === 0) {
+        const seed = [...new Set([...CHAP_DEF, ...(state.chapitres||[])])];
+        for (const code of seed) { const ok = await fbSaveChapitre(code); if (ok) { remote.add(code); pushedCount++; } }
+      }
+      if (remote.size > 0) await window._setDoc(seedRef, { seededAt: new Date().toISOString() });
+      if (pushedCount) touchVersion('chapitres');
+    }
     state.chapitres = [...remote].sort();
     saveState();
     return true;
