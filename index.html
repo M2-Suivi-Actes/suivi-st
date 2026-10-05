@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-10-01-v2-r656';
+  var APP_BUILD='2026-10-01-v2-r657';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -2519,21 +2519,32 @@ function extractYear(exploitation){
   const m=/(\d{4})/.exec(exploitation||'');
   return m?m[1]:'';
 }
-function acteIndexKey(im,mvt,chapitre,year){
+function acteIndexKey(im,mvt,chapitre,year,entryId){
   const clean=s=>String(s||'').trim().replace(/[\/\\.#$\[\]]/g,'_');
-  return `${clean(im)}_${clean(mvt)}_${clean(chapitre)||'NONE'}_${clean(year)||'NA'}`;
+  const eid=clean(entryId)||'NA';
+  return `${clean(im)}_${clean(mvt)}_${clean(chapitre)||'NONE'}_${clean(year)||'NA'}_${eid}`;
 }
-async function fbCheckActeIndex(im,mvt,chapitre,year){
+async function fbCheckActeIndex(im,mvt,chapitre,year,excludeEntryId){
   try{
-    const db=getDB(); if(!db) return null;
-    const snap=await window._getDoc(window._doc(db,'actes_index',acteIndexKey(im,mvt,chapitre,year)));
-    return snap.exists()?snap.data():null;
-  }catch(e){ console.error('FB acte index check:', e); return null; }
+    const db=getDB(); if(!db) return [];
+    const snap=await window._getDocs(window._query(window._collection(db,'actes_index'), window._where('im','==',im)));
+    const results=[];
+    snap.forEach(doc=>{
+      const d=doc.data();
+      if(String(d.mvt||'')!==String(mvt||''))return;
+      if(String(d.chapitre||'')!==String(chapitre||''))return;
+      if(String(d.year||'')!==String(year||''))return;
+      if(excludeEntryId&&d.entryId===excludeEntryId)return;
+      results.push(d);
+    });
+    return results;
+  }catch(e){ console.error('FB acte index check:', e); return []; }
 }
 async function fbSaveActeIndex(im,mvt,chapitre,year,info){
   try{
     const db=getDB(); if(!db) return false;
-    await window._setDoc(window._doc(db,'actes_index',acteIndexKey(im,mvt,chapitre,year)), {im,mvt,chapitre:chapitre||'',year, ...info, updatedAt:new Date().toISOString()});
+    const eid=(info&&info.entryId)||'NA';
+    await window._setDoc(window._doc(db,'actes_index',acteIndexKey(im,mvt,chapitre,year,eid)), {im,mvt,chapitre:chapitre||'',year, ...info, updatedAt:new Date().toISOString()});
     return true;
   }catch(e){ console.error('FB acte index save:', e); return false; }
 }
@@ -2545,10 +2556,10 @@ async function fbSearchByMatricule(im){
     return results;
   }catch(e){ console.error('FB search matricule:', e); return []; }
 }
-async function fbDeleteActeIndex(im,mvt,chapitre,year){
+async function fbDeleteActeIndex(im,mvt,chapitre,year,entryId){
   try{
     const db=getDB(); if(!db) return false;
-    await window._deleteDoc(window._doc(db,'actes_index',acteIndexKey(im,mvt,chapitre,year)));
+    await window._deleteDoc(window._doc(db,'actes_index',acteIndexKey(im,mvt,chapitre,year,entryId)));
     return true;
   }catch(e){ console.error('FB acte index delete:', e); return false; }
 }
@@ -2559,9 +2570,10 @@ async function syncActeIndex(oldEntry, newEntry, sh){
   const oldActes=oldEntry?(oldEntry.actes||[]):[];
   const newActes=newEntry.actes||[];
   if(oldEntry){
+    const oldEid=oldEntry._id;
     for(const a of oldActes){
       const stillPresent=oldYear===newYear&&newActes.some(b=>b.im===a.im&&b.mvt===a.mvt&&(b.chapitre||'')===(a.chapitre||''));
-      if(!stillPresent) fbDeleteActeIndex(a.im,a.mvt,a.chapitre||'',oldYear);
+      if(!stillPresent) fbDeleteActeIndex(a.im,a.mvt,a.chapitre||'',oldYear,oldEid);
     }
   }
   for(const a of newActes){
@@ -2575,7 +2587,8 @@ async function syncActeIndex(oldEntry, newEntry, sh){
 async function removeActeIndexForEntry(entry){
   if(!window._fbReady||!entry) return;
   const year=extractYear(entry.exploitation);
-  for(const a of (entry.actes||[])){ fbDeleteActeIndex(a.im,a.mvt,a.chapitre||'',year); }
+  const eid=entry._id;
+  for(const a of (entry.actes||[])){ fbDeleteActeIndex(a.im,a.mvt,a.chapitre||'',year,eid); }
 }
 async function showEntryById(entryId, sh){
   let entry=(state.sheets[sh]||[]).find(e=>e._id===entryId);
@@ -2600,7 +2613,7 @@ function showActeDupWarning(dups, proceedCb){
       déjà saisi par <b>${escHtml(d.createdBy||'—')}</b> sous Sigle <b>${escHtml(d.sigle||'—')}</b>/Paquet <b>${escHtml(d.paquet||'—')}</b>, exploitation <b>${escHtml(d.exploitation||'—')}</b>.<br>
       <a href="#" onclick="closeActeDupModal();showEntryById('${escHtml(d.entryId)}','${escHtml(d.sh)}');return false;" style="color:var(--accent)">Voir l'enregistrement →</a>
     </div>`).join('');
-  document.getElementById('acteDupOkBtn').onclick=()=>{const cb=acteDupProceedCb;closeActeDupModal();cb&&cb();};
+  document.getElementById('acteDupOkBtn').onclick=()=>{const cb=acteDupProceedCb;closeActeDupModal();window._forceSuccessDialog=true;cb&&cb();};
   document.getElementById('acteDupModal').classList.remove('hidden');
 }
 function closeActeDupModal(){document.getElementById('acteDupModal').classList.add('hidden');acteDupProceedCb=null;}
@@ -2622,8 +2635,7 @@ function setSaisieBusy(b){
 }
 async function submitSaisie(){
   if(saisieSubmitting) return; // anti double-clic : un seul envoi à la fois
-  saisieSubmitting=true; setSaisieBusy(true);
-  try{ await _submitSaisieCore(); }
+  saisieSubmitting=true; setSaisieBusy(true); window._forceSuccessDialog=false; try{ await _submitSaisieCore(); }
   catch(e){ console.error('submitSaisie:',e); toast("Erreur lors de l'enregistrement",'error'); }
   finally{ saisieSubmitting=false; setSaisieBusy(false); }
 }
@@ -2672,8 +2684,8 @@ async function _submitSaisieCore(){
       const year=extractYear(ex);
       const dups=[];
       for(const a of acteRows){
-        const found=await fbCheckActeIndex(a.im.trim(),a.mvt,a.chapitre||'',year);
-        if(found&&found.entryId!==entryId){ dups.push({...found, im:a.im, mvt:a.mvt, chapitre:a.chapitre}); }
+        const foundList=await fbCheckActeIndex(a.im.trim(),a.mvt,a.chapitre||'',year,entryId);
+        if(foundList&&foundList.length){ foundList.forEach(f=>dups.push({...f, im:a.im, mvt:a.mvt, chapitre:a.chapitre})); }
       }
       if(dups.length){ showActeDupWarning(dups, ()=>finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId,ctx)); return; }
     }
@@ -2712,7 +2724,15 @@ async function finalizeSubmitSaisie(dd,nst,si,pa,ed,ex,sh,entryId,ctx){
   saveState();
   const ap=PAGES.find(p=>!document.getElementById('page-'+p)?.classList.contains('hidden'));
   if(ap==='dashboard')renderDash();if(ap==='liste')filterList();
-  if(wasEdit){closeSaisieModal();}else{selectedActeType=acteType;resetSaisieFormKeepDate(dd);}
+  if(wasEdit){closeSaisieModal();window._forceSuccessDialog=false;}
+  else if(window._forceSuccessDialog){
+    window._forceSuccessDialog=false;
+    var _nstMsg=(nst!=null&&nst!=='')?'ST N° '+nst:'SIGSOLDE';
+    alert('✅ Enregistrement effectué avec succès.\n\n'+_nstMsg+' a bien été enregistré.\n\nLe formulaire est réinitialisé, prêt pour une nouvelle saisie.');
+    selectedActeType=acteType;
+    resetSaisieFormKeepDate('');
+  }
+  else{selectedActeType=acteType;resetSaisieFormKeepDate(dd);}
 }
 // ======== RECHERCHE ========
 function renderSearchResults(found, q){
