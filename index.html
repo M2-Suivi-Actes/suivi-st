@@ -5,7 +5,7 @@
 <script>
 (function(){
   // Change ce numéro à chaque nouvelle version envoyée pour forcer la mise à jour chez tous les utilisateurs
-  var APP_BUILD='2026-10-01-v2-r655';
+  var APP_BUILD='2026-10-01-v2-r656';
   var KEY='appBuild';
   function forceReloadOnce(){
     if(sessionStorage.getItem('appReloadedOnce'))return;
@@ -972,7 +972,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
 (function(){
 function loadOutils(){if(window._outilsLoaded)return;var d=document.getElementById("outilData");var f=document.getElementById("outilsSoldeFrame");if(!d||!f)return;try{var b=d.textContent.replace(/\s+/g,"");var bin=atob(b);var by=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)by[i]=bin.charCodeAt(i);var h=new TextDecoder("utf-8").decode(by);f.srcdoc=h;window._outilsLoaded=true;}catch(e){console.error("loadOutils:",e);}}
 function sizeFrame(){var f=document.getElementById("outilsSoldeFrame");var p=document.getElementById("page-outils_solde");if(!f||!p||p.classList.contains("hidden"))return;var hd=p.querySelector(".page-header");var hh=hd?hd.offsetHeight:0;f.style.height=(window.innerHeight-hh)+"px";var m=document.querySelector(".main");if(m)m.scrollTop=0;}
-function wrap(){if(window._outilsWrapped)return;var orig=window.showPage;if(!orig)return setTimeout(wrap,100);window.showPage=function(p){if(p==="outils_solde"){["dashboard","liste","recherche","rapports","cesp","donnees_cesp","config"].forEach(function(x){var pg=document.getElementById("page-"+x);if(pg)pg.classList.add("hidden");var nv=document.getElementById("nav-"+x);if(nv)nv.classList.remove("active");});document.getElementById("page-outils_solde").classList.remove("hidden");document.getElementById("nav-outils_solde").classList.add("active");loadOutils();setTimeout(sizeFrame,50);return;}orig.apply(this,arguments);};window._outilsWrapped=true;}
+function wrap(){if(window._outilsWrapped)return;var orig=window.showPage;if(!orig)return setTimeout(wrap,100);window.showPage=function(p){if(p==="outils_solde"){["dashboard","liste","recherche","rapports","cesp","donnees_cesp","config"].forEach(function(x){var pg=document.getElementById("page-"+x);if(pg)pg.classList.add("hidden");var nv=document.getElementById("nav-"+x);if(nv)nv.classList.remove("active");});document.getElementById("page-outils_solde").classList.remove("hidden");document.getElementById("nav-outils_solde").classList.add("active");loadOutils();setTimeout(sizeFrame,50);return;}var op=document.getElementById("page-outils_solde");if(op)op.classList.add("hidden");var onv=document.getElementById("nav-outils_solde");if(onv)onv.classList.remove("active");orig.apply(this,arguments);};window._outilsWrapped=true;}
 window.addEventListener("resize",sizeFrame);
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",wrap);else wrap();
 })();
