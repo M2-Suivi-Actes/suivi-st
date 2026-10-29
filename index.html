@@ -4448,5 +4448,444 @@ var timer=setInterval(function(){
 
 </script>
 <!-- MEM_PATCH_v7_5 -->
+
+<script>
+/* PATCH_CALC563_V2_APPLIED */
+(function(){
+  if (window.__calc563SubPeriodsPatched) return;
+  window.__calc563SubPeriodsPatched = true;
+  var PATCH_CODE = "/* PATCH CALC 538/563 — découpage par changement de barème */\nvar __c563_L = String.fromCharCode(60), __c563_G = String.fromCharCode(62);\nfunction __c563_O(tag, attrs){ return __c563_L + tag + (attrs ? \" \" + attrs : \"\") + __c563_G; }\nfunction __c563_C(tag){ return __c563_L + \"/\" + tag + __c563_G; }\nfunction __c563_T(tag, attrs, content){ return __c563_O(tag, attrs) + (content || \"\") + __c563_C(tag); }\nvar __c563_findChanges = function(d1, d2, cat, ind){\n  var changes = [], seen = {};\n  function recurse(lo, hi){\n    var bLo = tb(lo, cat, ind), bHi = tb(hi, cat, ind);\n    if (!bLo || !bHi) return;\n    if (bLo.date.getTime() === bHi.date.getTime()) return;\n    var diff = hi.getTime() - lo.getTime();\n    if (diff \u003C= 86400000){\n      var t = bHi.date.getTime();\n      if (bHi.date \u003E d1 && bHi.date \u003C= d2 && !seen[t]){ seen[t] = true; changes.push(bHi.date); }\n      return;\n    }\n    var mid = new Date(lo.getTime() + Math.floor(diff/2));\n    recurse(lo, mid);\n    recurse(mid, hi);\n  }\n  recurse(d1, d2);\n  changes.sort(function(a,b){ return a - b; });\n  return changes;\n};\nvar __c563_splitPeriodes = function(d1, d2, changes){\n  var bornes = [d1].concat(changes), res = [];\n  for (var i = 0; i \u003C bornes.length; i++){\n    var deb = bornes[i], fin;\n    if (i+1 \u003C bornes.length){\n      fin = new Date(bornes[i+1]);\n      fin.setDate(fin.getDate() - 1);\n    } else { fin = d2; }\n    if (fin \u003C deb) continue;\n    res.push({ debut: deb, fin: fin });\n  }\n  return res;\n};\nvar __c563_newLogic = function(){\n  var O = __c563_O, C = __c563_C, T = __c563_T;\n  var cat = document.getElementById(\"cCat\").value;\n  var ind = parseFloat(document.getElementById(\"cInd\").value);\n  var dd  = document.getElementById(\"cDateD\").value;\n  var df  = document.getElementById(\"cDateF\").value;\n  var resultBody = document.getElementById(\"cResultBody\");\n  while (resultBody.firstChild) resultBody.removeChild(resultBody.firstChild);\n  if (!cat || isNaN(ind) || !dd || !df){\n    resultBody.innerHTML = T(\"div\", \"style=\\\"padding:20px;text-align:center;color:#B91C1C\\\"\", \"Veuillez renseigner la catégorie, l'indice, la date début et la date fin.\");\n    document.getElementById(\"cResultWrap\").style.display = \"\";\n    return;\n  }\n  var d1 = pd(dd), d2 = pd(df);\n  if (!d1 || !d2 || d2 \u003C d1){\n    resultBody.innerHTML = T(\"div\", \"style=\\\"padding:20px;text-align:center;color:#B91C1C\\\"\", \"Dates invalides.\");\n    document.getElementById(\"cResultWrap\").style.display = \"\";\n    return;\n  }\n  var changes = __c563_findChanges(d1, d2, cat, ind);\n  var sousPeriodes = __c563_splitPeriodes(d1, d2, changes);\n  var N = sousPeriodes.length;\n  var resultats = [];\n  for (var k = 0; k \u003C N; k++){\n    var sp = sousPeriodes[k];\n    var b = tb(sp.debut, cat, ind);\n    if (!b){ resultats.push({ sp: sp, error: \"Aucun barème trouvé à la date \" + fmtD(sp.debut) + \".\" }); continue; }\n    var delta = totalRub(b);\n    var mens = monthlyDays(sp.debut, sp.fin);\n    var trim = quarterlyDays(sp.debut, sp.fin);\n    var sem  = semesterDays(sp.debut, sp.fin);\n    var bM538 = delta * 3/5, bM563 = delta * 2/5;\n    var bT538 = delta * 3/5 * 3, bT563 = delta * 2/5 * 4;\n    var bS538 = delta * 3/5 * 13, bS563 = delta * 2/5 * 10;\n    var fM538 = bM538 * mens / 30, fM563 = bM563 * mens / 30;\n    var fT538 = bT538 * trim / 90, fT563 = bT563 * trim / 90;\n    var fS538 = bS538 * sem / 180, fS563 = bS563 * sem / 180;\n    resultats.push({ sp: sp, b: b, delta: delta, mens: mens, trim: trim, sem: sem,\n      bM538: bM538, bM563: bM563, bT538: bT538, bT563: bT563, bS538: bS538, bS563: bS563,\n      fM538: fM538, fM563: fM563, fT538: fT538, fT563: fT563, fS538: fS538, fS563: fS563,\n      tot538: fM538 + fT538 + fS538, tot563: fM563 + fT563 + fS563 });\n  }\n  var h = \"\";\n  h += O(\"div\", \"class=\\\"info-bar\\\"\");\n  h += T(\"div\", \"\", T(\"span\", \"class=\\\"lbl\\\"\", \"Date début :\") + T(\"span\", \"class=\\\"val\\\"\", fmtD(d1)));\n  h += T(\"div\", \"\", T(\"span\", \"class=\\\"lbl\\\"\", \"Date fin :\") + T(\"span\", \"class=\\\"val\\\"\", fmtD(d2)));\n  h += C(\"div\");\n  h += O(\"div\", \"class=\\\"info-bar\\\"\");\n  h += T(\"div\", \"\", T(\"span\", \"class=\\\"lbl\\\"\", \"Catégorie :\") + T(\"span\", \"class=\\\"val\\\"\", cat));\n  h += T(\"div\", \"\", T(\"span\", \"class=\\\"lbl\\\"\", \"Indice :\") + T(\"span\", \"class=\\\"val\\\"\", ind));\n  h += T(\"div\", \"\", T(\"span\", \"class=\\\"lbl\\\"\", \"Sous-périodes :\") + T(\"span\", \"class=\\\"val\\\"\", N));\n  h += C(\"div\");\n  for (var k = 0; k \u003C N; k++){\n    var r = resultats[k];\n    h += O(\"div\", \"class=\\\"sous-periode-block\\\"\");\n    h += T(\"div\", \"class=\\\"sous-periode-title\\\"\", \"Sous-période \" + (k+1) + \" / \" + N + \" — du \" + fmtD(r.sp.debut) + \" au \" + fmtD(r.sp.fin));\n    if (r.error){\n      h += T(\"div\", \"style=\\\"padding:14px;text-align:center;color:#B91C1C;background:#FEF2F2;border-radius:8px;margin:8px 0\\\"\", r.error);\n    } else {\n      h += O(\"div\", \"class=\\\"info-bar\\\"\");\n      h += T(\"div\", \"\", T(\"span\", \"class=\\\"lbl\\\"\", \"Barème du :\") + T(\"span\", \"class=\\\"val\\\"\", fmtD(r.b.date)));\n      h += T(\"div\", \"\", T(\"span\", \"class=\\\"lbl\\\"\", \"Delta :\") + T(\"span\", \"class=\\\"val\\\"\", fmtN(r.delta)));\n      h += C(\"div\");\n      h += O(\"div\", \"class=\\\"result-grid\\\"\");\n      h += O(\"table\", \"class=\\\"result-tbl tbl1\\\"\");\n      h += T(\"thead\", \"\", T(\"tr\", \"\", T(\"th\", \"\", \"Rubrique\") + T(\"th\", \"\", \"Montant\")));\n      h += O(\"tbody\", \"\");\n      [\"500\",\"501\",\"502\",\"503\",\"505\",\"506\"].forEach(function(rub){\n        h += T(\"tr\", \"\", T(\"td\", \"class=\\\"lbl-col\\\"\", rub) + T(\"td\", \"class=\\\"num-col\\\"\", fmtN(r.b[\"V\" + rub])));\n      });\n      h += T(\"tr\", \"class=\\\"tot\\\"\", T(\"td\", \"class=\\\"lbl-col\\\"\", \"Solde\") + T(\"td\", \"class=\\\"num-col\\\"\", fmtN(r.delta)));\n      h += C(\"tbody\") + C(\"table\");\n      h += O(\"table\", \"class=\\\"result-tbl tbl2\\\"\");\n      h += T(\"thead\", \"\", T(\"tr\", \"\", T(\"th\", \"\", \"Rubrique\") + T(\"th\", \"\", \"Base de calcul (Remise complète)\") + T(\"th\", \"\", \"Nombre de jour\") + T(\"th\", \"\", \"Montant Final\")));\n      h += O(\"tbody\", \"\");\n      h += T(\"tr\", \"\", T(\"td\", \"class=\\\"lbl-col\\\"\", \"mens 538\") + T(\"td\", \"class=\\\"num-col\\\"\", fmtN(r.bM538)) + T(\"td\", \"\", r.mens) + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(r.fM538)));\n      h += T(\"tr\", \"\", T(\"td\", \"class=\\\"lbl-col\\\"\", \"mens 563\") + T(\"td\", \"class=\\\"num-col\\\"\", fmtN(r.bM563)) + T(\"td\", \"\", r.mens) + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(r.fM563)));\n      h += T(\"tr\", \"\", T(\"td\", \"class=\\\"lbl-col\\\"\", \"trim 538\") + T(\"td\", \"class=\\\"num-col\\\"\", fmtN(r.bT538)) + T(\"td\", \"\", r.trim) + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(r.fT538)));\n      h += T(\"tr\", \"\", T(\"td\", \"class=\\\"lbl-col\\\"\", \"trim 563\") + T(\"td\", \"class=\\\"num-col\\\"\", fmtN(r.bT563)) + T(\"td\", \"\", r.trim) + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(r.fT563)));\n      h += T(\"tr\", \"\", T(\"td\", \"class=\\\"lbl-col\\\"\", \"sem 538\") + T(\"td\", \"class=\\\"num-col\\\"\", fmtN(r.bS538)) + T(\"td\", \"\", r.sem) + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(r.fS538)));\n      h += T(\"tr\", \"\", T(\"td\", \"class=\\\"lbl-col\\\"\", \"sem 563\") + T(\"td\", \"class=\\\"num-col\\\"\", fmtN(r.bS563)) + T(\"td\", \"\", r.sem) + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(r.fS563)));\n      h += T(\"tr\", \"class=\\\"tot\\\"\", T(\"td\", \"class=\\\"lbl-col\\\"\", \"538\") + T(\"td\", \"\") + T(\"td\", \"\") + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(r.tot538)));\n      h += T(\"tr\", \"class=\\\"tot\\\"\", T(\"td\", \"class=\\\"lbl-col\\\"\", \"563\") + T(\"td\", \"\") + T(\"td\", \"\") + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(r.tot563)));\n      h += C(\"tbody\") + C(\"table\");\n      h += C(\"div\");\n    }\n    h += C(\"div\");\n  }\n  var tot538G = 0, tot563G = 0;\n  h += T(\"div\", \"class=\\\"sec-title\\\"\", \"Récapitulatif global\");\n  h += O(\"table\", \"class=\\\"result-tbl tbl2\\\"\");\n  h += T(\"thead\", \"\", T(\"tr\", \"\", T(\"th\", \"\", \"N°\") + T(\"th\", \"\", \"Date début\") + T(\"th\", \"\", \"Date fin\") + T(\"th\", \"\", \"Date barème\") + T(\"th\", \"\", \"Delta\") + T(\"th\", \"\", \"V538\") + T(\"th\", \"\", \"V563\")));\n  h += O(\"tbody\", \"\");\n  for (var k = 0; k \u003C N; k++){\n    var r = resultats[k];\n    if (r.error){\n      h += T(\"tr\", \"\", T(\"td\", \"class=\\\"lbl-col\\\"\", (k+1)) + T(\"td\", \"class=\\\"num-col\\\"\", fmtD(r.sp.debut)) + T(\"td\", \"class=\\\"num-col\\\"\", fmtD(r.sp.fin)) + T(\"td\", \"colspan=\\\"4\\\" style=\\\"text-align:center;color:#B91C1C\\\"\", \"N/A\"));\n    } else {\n      tot538G += r.tot538;\n      tot563G += r.tot563;\n      h += T(\"tr\", \"\", T(\"td\", \"class=\\\"lbl-col\\\"\", (k+1)) + T(\"td\", \"class=\\\"num-col\\\"\", fmtD(r.sp.debut)) + T(\"td\", \"class=\\\"num-col\\\"\", fmtD(r.sp.fin)) + T(\"td\", \"class=\\\"num-col\\\"\", fmtD(r.b.date)) + T(\"td\", \"class=\\\"num-col\\\"\", fmtN(r.delta)) + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(r.tot538)) + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(r.tot563)));\n    }\n  }\n  h += T(\"tr\", \"class=\\\"tot\\\"\", T(\"td\", \"colspan=\\\"5\\\" style=\\\"text-align:right\\\"\", \"TOTAL V538\") + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(tot538G)) + T(\"td\", \"\"));\n  h += T(\"tr\", \"class=\\\"tot\\\"\", T(\"td\", \"colspan=\\\"5\\\" style=\\\"text-align:right\\\"\", \"TOTAL V563\") + T(\"td\", \"\") + T(\"td\", \"class=\\\"num-col green\\\"\", fmtN(tot563G)));\n  h += T(\"tr\", \"class=\\\"tot grand\\\"\", T(\"td\", \"colspan=\\\"5\\\" style=\\\"text-align:right\\\"\", \"TOTAL GÉNÉRAL (V538 + V563)\") + T(\"td\", \"colspan=\\\"2\\\" class=\\\"num-col green\\\"\", fmtN(tot538G + tot563G)));\n  h += C(\"tbody\") + C(\"table\");\n  resultBody.innerHTML = h;\n  document.getElementById(\"cResultWrap\").style.display = \"\";\n};\ncalculer = function(){\n  __c563_newLogic();\n  if (window.M2History && !window.__v7NoPush){\n    try {\n      var cat = document.getElementById(\"cCat\").value;\n      var ind = document.getElementById(\"cInd\").value;\n      var dd = document.getElementById(\"cDateD\").value;\n      var df = document.getElementById(\"cDateF\").value;\n      var rb = document.getElementById(\"cResultBody\");\n      if (!rb || !rb.innerHTML) return;\n      var total = \"-\";\n      var tables = rb.querySelectorAll(\"table.result-tbl\");\n      if (tables.length \u003E 1){\n        var last = tables[tables.length - 1];\n        var lr = last.querySelector(\"tbody tr:last-child td:last-child\");\n        if (lr) total = lr.textContent.trim();\n      }\n      if (!(ind && dd && df)) return;\n      var lastEntry = M2History.load()[0];\n      if (lastEntry && lastEntry.data && lastEntry.data.result === total && lastEntry.data.cat === cat && lastEntry.data.ind === ind && lastEntry.data.dd === dd && lastEntry.data.df === df) return;\n      M2History.push({summary: \"Cat \" + cat + \"/\" + ind + \" - \" + dd + \" a \" + df, result: total, cat: cat, ind: ind, dd: dd, df: df});\n    } catch(e){}\n  }\n};\ncalculer.__v7Patched = true;\nvar __c563_btn = document.getElementById(\"cCalcBtn\");\nif (__c563_btn) __c563_btn.onclick = calculer;\n(function(){\n  var s = document.createElement(\"style\");\n  s.textContent = \".sous-periode-block{margin:22px 0;padding:16px 18px;border:1px solid #EDE0BF;border-radius:12px;background:#FEFDFA}\" + \".sous-periode-title{font-size:13.5px;font-weight:700;color:#5C4610;text-align:center;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;padding-bottom:9px;border-bottom:1px dashed #D9C48A}\" + \"table.result-tbl tbody tr.tot.grand td{background:linear-gradient(135deg,#F5E6B3,#EAD48A)!important;font-weight:700;color:#5C4610;font-size:14px;border-top:2px solid #C9A227}\";\n  document.head.appendChild(s);\n})();";
+  function injectPatch(html){
+    var SC = String.fromCharCode(60) + "/script" + String.fromCharCode(62);
+    var i = html.lastIndexOf(SC);
+    if (i === -1) { console.warn("[PATCH CALC563] pas de fermeture script"); return html; }
+    var inner = html.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 1000) { console.warn("[PATCH CALC563] IIFE introuvable"); return html; }
+    return inner.slice(0, ii) + PATCH_CODE + String.fromCharCode(10) + html.slice(ii);
+  }
+  function wrapBuilder(){
+    if (window.__calc563Wrapped) return;
+    var orig = window.buildCalcul538563Html;
+    if (typeof orig !== "function") return;
+    var wrapped = function(){ return injectPatch(orig.apply(this, arguments)); };
+    wrapped.__calc563Wrapped = true;
+    window.buildCalcul538563Html = wrapped;
+    window.__calc563Wrapped = true;
+    console.log("[PATCH CALC563] buildCalcul538563Html enveloppé");
+  }
+  if (typeof window.buildCalcul538563Html === "function"){ wrapBuilder(); }
+  else {
+    var tries = 0;
+    var t = setInterval(function(){
+      tries++;
+      if (typeof window.buildCalcul538563Html === "function"){ clearInterval(t); wrapBuilder(); }
+      else if (tries > 100){ clearInterval(t); }
+    }, 50);
+  }
+})();
+</script>
+
+<script>
+/* PATCH_PDF_MVT63_CALC563_V1_APPLIED */
+<script>
+(function(){
+  if (window.__mvt63PdfPatched) return;
+  window.__mvt63PdfPatched = true;
+  var CODE = "(function(){\n  var LT = String.fromCharCode(60), GT = String.fromCharCode(62);\n  function H(n, a, c){ return LT + n + (a ? \" \" + a : \"\") + GT + (c || \"\") + LT + \"/\" + n + GT; }\n  function esc(s){ return String(s).split(\"&\").join(\"&amp;\").split(LT).join(\"&lt;\").split(GT).join(\"&gt;\"); }\n  function init(){\n    var wrap = document.getElementById(\"detailWrap\");\n    if (!wrap) return;\n    var header = wrap.querySelector(\".card-header\");\n    if (!header || document.getElementById(\"mvt63PdfBtn\")) return;\n    var btn = document.createElement(\"button\");\n    btn.id = \"mvt63PdfBtn\";\n    btn.type = \"button\";\n    btn.style.cssText = \"display:none;margin-left:auto;background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit\";\n    btn.textContent = \"\\uD83D\\uDCC4 Exporter PDF\";\n    btn.onclick = exportPdf;\n    header.appendChild(btn);\n    var tb = document.getElementById(\"detailBody\");\n    function update(){ btn.style.display = (tb && tb.children.length \u003E 0) ? \"\" : \"none\"; }\n    update();\n    if (window.MutationObserver && tb) new MutationObserver(update).observe(tb, { childList: true });\n    if (typeof calculer === \"function\"){\n      var orig = calculer;\n      calculer = function(){ var r = orig.apply(this, arguments); setTimeout(update, 150); return r; };\n      var bc = document.getElementById(\"calcBtn\");\n      if (bc) bc.onclick = calculer;\n    }\n  }\n  function exportPdf(){\n    var tb = document.getElementById(\"detailBody\");\n    if (!tb || tb.children.length === 0){ alert(\"Aucun détail à exporter. Veuillez d'abord cliquer sur Calculer.\"); return; }\n    var rows = [];\n    for (var i = 0; i \u003C tb.children.length; i++){\n      var cells = [];\n      for (var j = 0; j \u003C tb.children[i].children.length; j++){\n        cells.push(tb.children[i].children[j].textContent.trim());\n      }\n      rows.push(cells);\n    }\n    var total = document.getElementById(\"kpiTotal\").textContent.trim();\n    var count = document.getElementById(\"kpiRows\").textContent.trim();\n    var css = \"body{font-family:Arial,sans-serif;background:#FAF6EC;color:#2B1F0F;padding:24px;margin:0}\" +\n      \"h1{font-size:20px;color:#8B6914;margin:0 0 6px}\" +\n      \".sub{font-size:13px;color:#8B7A5F;margin-bottom:18px}\" +\n      \"table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #EDE0BF;margin-bottom:14px}\" +\n      \"th{background:#FBF5E0;color:#8B6914;padding:9px 8px;border:1px solid #D9C48A;font-size:11px;text-transform:uppercase;letter-spacing:.5px}\" +\n      \"td{padding:8px;border:1px solid #D9C48A;text-align:center;font-variant-numeric:tabular-nums}\" +\n      \".toolbar{display:flex;gap:10px;justify-content:flex-end;margin-bottom:16px}\" +\n      \".btn{background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}\" +\n      \".btn.ghost{background:#fff;color:#8B6914;border:1px solid #EDE0BF}\" +\n      \".total{margin-top:14px;padding:12px 18px;background:linear-gradient(135deg,#F5E6B3,#EAD48A);border:1px solid #D4BF7F;border-radius:8px;display:flex;justify-content:space-between;font-weight:700;color:#5C4610}\" +\n      \"@media print{.toolbar{display:none}body{background:#fff;padding:0}}\";\n    var headers = [\"Cat\\u00e9gorie\",\"Indice\",\"Montant\",\"Date d\\u00e9but\",\"Date fin\",\"Jours\",\"Montant Total\"];\n    var h = LT + \"!DOCTYPE html\" + GT + H(\"html\", \"lang=\\\"fr\\\"\",\n      H(\"head\", \"\", H(\"meta\", \"charset=\\\"UTF-8\\\"\") + H(\"title\", \"\", \"Detail MVT 63\") + H(\"style\", \"\", css)) +\n      LT + \"body\" + GT +\n      H(\"div\", \"class=\\\"toolbar\\\"\",\n        H(\"button\", \"class=\\\"btn\\\" onclick=\\\"window.print()\\\"\", \"\\uD83D\\uDDA8 Imprimer / Enregistrer en PDF\") +\n        H(\"button\", \"class=\\\"btn ghost\\\" onclick=\\\"window.close()\\\"\", \"\\u2715 Fermer\")\n      ) +\n      H(\"h1\", \"\", \"D\\u00e9tail du rappel - MVT 63\") +\n      H(\"div\", \"class=\\\"sub\\\"\", \"Lignes calcul\\u00e9es : \" + esc(count)) +\n      H(\"table\", \"\",\n        H(\"thead\", \"\", H(\"tr\", \"\", headers.map(function(x){ return H(\"th\", \"\", x); }).join(\"\"))) +\n        H(\"tbody\", \"\", rows.map(function(r){ return H(\"tr\", \"\", r.map(function(c){ return H(\"td\", \"\", esc(c)); }).join(\"\")); }).join(\"\"))\n      ) +\n      H(\"div\", \"class=\\\"total\\\"\", H(\"span\", \"\", \"TOTAL RAPPEL\") + H(\"span\", \"\", esc(total))) +\n      LT + \"/body\" + GT + LT + \"/html\" + GT\n    );\n    var w = window.open(\"\", \"_blank\");\n    if (!w){ alert(\"Autorisez les pop-ups pour exporter en PDF.\"); return; }\n    w.document.open();\n    w.document.write(h);\n    w.document.close();\n  }\n  if (document.readyState === \"loading\") document.addEventListener(\"DOMContentLoaded\", init);\n  else init();\n})();";
+  function inject(html){
+    var SC = String.fromCharCode(60) + "/script" + String.fromCharCode(62);
+    var i = html.lastIndexOf(SC);
+    if (i === -1) { console.warn("[PDF PATCH] pas de fermeture script"); return html; }
+    var inner = html.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 2000) { console.warn("[PDF PATCH] IIFE introuvable"); return html; }
+    return inner.slice(0, ii) + CODE + String.fromCharCode(10) + html.slice(ii);
+  }
+  function wrap(){
+    if (window.__mvt63PdfPatched_wrapped) return;
+    var orig = window.buildMvt63Html;
+    if (typeof orig !== "function") return;
+    var w = function(){ return inject(orig.apply(this, arguments)); };
+    w.__pdfPatched = true;
+    window.buildMvt63Html = w;
+    window.__mvt63PdfPatched_wrapped = true;
+    console.log("[PDF PATCH] buildMvt63Html wrapped");
+  }
+  if (typeof window.buildMvt63Html === "function") wrap();
+  else {
+    var tries = 0;
+    var t = setInterval(function(){
+      tries++;
+      if (typeof window.buildMvt63Html === "function"){ clearInterval(t); wrap(); }
+      else if (tries > 100) clearInterval(t);
+    }, 50);
+  }
+})();
+(function(){
+  if (window.__calc563PdfPatched) return;
+  window.__calc563PdfPatched = true;
+  var CODE = "(function(){\n  var LT = String.fromCharCode(60), GT = String.fromCharCode(62);\n  function H(n, a, c){ return LT + n + (a ? \" \" + a : \"\") + GT + (c || \"\") + LT + \"/\" + n + GT; }\n  function esc(s){ return String(s).split(\"&\").join(\"&amp;\").split(LT).join(\"&lt;\").split(GT).join(\"&gt;\"); }\n  function addButtons(){\n    var blocks = document.querySelectorAll(\".sous-periode-block\");\n    for (var i = 0; i \u003C blocks.length; i++){\n      var block = blocks[i];\n      if (block.querySelector(\".sub-pdf-btn\")) continue;\n      var title = block.querySelector(\".sous-periode-title\");\n      if (!title) continue;\n      var btn = document.createElement(\"button\");\n      btn.type = \"button\";\n      btn.className = \"sub-pdf-btn\";\n      btn.textContent = \"\\uD83D\\uDCC4 Exporter PDF\";\n      btn.style.cssText = \"display:block;margin:0 auto 10px;padding:6px 14px;background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600\";\n      btn.onclick = function(){ exportBlock(this); };\n      title.parentNode.insertBefore(btn, title.nextSibling);\n    }\n  }\n  function exportBlock(btn){\n    var block = btn.closest(\".sous-periode-block\");\n    if (!block) return;\n    var titleEl = block.querySelector(\".sous-periode-title\");\n    var title = titleEl ? titleEl.textContent.trim() : \"Sous-p\\u00e9riode\";\n    var infoItems = [];\n    var infoBars = block.querySelectorAll(\".info-bar\");\n    for (var ib = 0; ib \u003C infoBars.length; ib++){\n      var ch = infoBars[ib].children;\n      for (var j = 0; j \u003C ch.length; j++){\n        if (ch[j].tagName !== \"DIV\") continue;\n        var lbl = ch[j].querySelector(\".lbl\");\n        var val = ch[j].querySelector(\".val\");\n        if (lbl && val) infoItems.push({ lbl: lbl.textContent.trim(), val: val.textContent.trim() });\n      }\n    }\n    var tables = block.querySelectorAll(\"table.result-tbl\");\n    var tblData = [];\n    for (var t = 0; t \u003C tables.length; t++){\n      var headers = [];\n      var ths = tables[t].querySelectorAll(\"thead th\");\n      for (var hh = 0; hh \u003C ths.length; hh++) headers.push(ths[hh].textContent.trim());\n      var rows = [];\n      var trs = tables[t].querySelectorAll(\"tbody tr\");\n      for (var r = 0; r \u003C trs.length; r++){\n        var cells = [];\n        var cs = trs[r].querySelectorAll(\"td\");\n        for (var c = 0; c \u003C cs.length; c++) cells.push(cs[c].textContent.trim());\n        rows.push(cells);\n      }\n      tblData.push({ headers: headers, rows: rows });\n    }\n    var css = \"body{font-family:Arial,sans-serif;background:#FAF6EC;color:#2B1F0F;padding:24px;margin:0}\" +\n      \"h1{font-size:20px;color:#8B6914;margin:0 0 6px}\" +\n      \".info{font-size:13px;color:#8B7A5F;margin-bottom:18px;padding:10px 14px;background:#FBF5E0;border:1px solid #EDE0BF;border-radius:8px}\" +\n      \".info span{display:inline-block;margin-right:16px}\" +\n      \".info b{color:#5C4610}\" +\n      \"table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #EDE0BF;margin-bottom:14px}\" +\n      \"th{background:#FBF5E0;color:#8B6914;padding:9px 8px;border:1px solid #D9C48A;font-size:11px;text-transform:uppercase;letter-spacing:.5px}\" +\n      \"td{padding:8px;border:1px solid #D9C48A;text-align:center;font-variant-numeric:tabular-nums}\" +\n      \".toolbar{display:flex;gap:10px;justify-content:flex-end;margin-bottom:16px}\" +\n      \".btn{background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}\" +\n      \".btn.ghost{background:#fff;color:#8B6914;border:1px solid #EDE0BF}\" +\n      \"@media print{.toolbar{display:none}body{background:#fff;padding:0}}\";\n    var tablesHtml = tblData.map(function(t){\n      return H(\"table\", \"\",\n        H(\"thead\", \"\", H(\"tr\", \"\", t.headers.map(function(x){ return H(\"th\", \"\", esc(x)); }).join(\"\"))) +\n        H(\"tbody\", \"\", t.rows.map(function(r){ return H(\"tr\", \"\", r.map(function(c){ return H(\"td\", \"\", esc(c)); }).join(\"\")); }).join(\"\"))\n      );\n    }).join(\"\");\n    var infoHtml = infoItems.map(function(it){ return H(\"span\", \"\", H(\"b\", \"\", esc(it.lbl)) + \" \" + esc(it.val)); }).join(\"\");\n    var h = LT + \"!DOCTYPE html\" + GT + H(\"html\", \"lang=\\\"fr\\\"\",\n      H(\"head\", \"\", H(\"meta\", \"charset=\\\"UTF-8\\\"\") + H(\"title\", \"\", esc(title)) + H(\"style\", \"\", css)) +\n      LT + \"body\" + GT +\n      H(\"div\", \"class=\\\"toolbar\\\"\",\n        H(\"button\", \"class=\\\"btn\\\" onclick=\\\"window.print()\\\"\", \"\\uD83D\\uDDA8 Imprimer / Enregistrer en PDF\") +\n        H(\"button\", \"class=\\\"btn ghost\\\" onclick=\\\"window.close()\\\"\", \"\\u2715 Fermer\")\n      ) +\n      H(\"h1\", \"\", esc(title)) +\n      H(\"div\", \"class=\\\"info\\\"\", infoHtml) +\n      tablesHtml +\n      LT + \"/body\" + GT + LT + \"/html\" + GT\n    );\n    var w = window.open(\"\", \"_blank\");\n    if (!w){ alert(\"Autorisez les pop-ups pour afficher les d\\u00e9tails.\"); return; }\n    w.document.open();\n    w.document.write(h);\n    w.document.close();\n  }\n  function init(){\n    if (typeof calculer === \"function\"){\n      var orig = calculer;\n      calculer = function(){ var r = orig.apply(this, arguments); setTimeout(addButtons, 150); return r; };\n      var bc = document.getElementById(\"cCalcBtn\");\n      if (bc) bc.onclick = calculer;\n    }\n    setTimeout(addButtons, 500);\n  }\n  if (document.readyState === \"loading\") document.addEventListener(\"DOMContentLoaded\", init);\n  else init();\n})();";
+  function inject(html){
+    var SC = String.fromCharCode(60) + "/script" + String.fromCharCode(62);
+    var i = html.lastIndexOf(SC);
+    if (i === -1) { console.warn("[PDF PATCH] pas de fermeture script"); return html; }
+    var inner = html.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 2000) { console.warn("[PDF PATCH] IIFE introuvable"); return html; }
+    return inner.slice(0, ii) + CODE + String.fromCharCode(10) + html.slice(ii);
+  }
+  function wrap(){
+    if (window.__calc563PdfPatched_wrapped) return;
+    var orig = window.buildCalcul538563Html;
+    if (typeof orig !== "function") return;
+    var w = function(){ return inject(orig.apply(this, arguments)); };
+    w.__pdfPatched = true;
+    window.buildCalcul538563Html = w;
+    window.__calc563PdfPatched_wrapped = true;
+    console.log("[PDF PATCH] buildCalcul538563Html wrapped");
+  }
+  if (typeof window.buildCalcul538563Html === "function") wrap();
+  else {
+    var tries = 0;
+    var t = setInterval(function(){
+      tries++;
+      if (typeof window.buildCalcul538563Html === "function"){ clearInterval(t); wrap(); }
+      else if (tries > 100) clearInterval(t);
+    }, 50);
+  }
+})();
+</script>
+</script>
+
+<script>
+/* PATCH_PDF_V6_APPLIED */
+(function(){
+  if (window.__wMvt63) return;
+  window.__wMvt63 = true;
+  var CODE = "(function(){\n  var LT = String.fromCharCode(60), GT = String.fromCharCode(62);\n  function H(n,a,c){ return LT+n+(a?\" \"+a:\"\")+GT+(c||\"\")+LT+\"/\"+n+GT; }\n  function esc(s){ return String(s).split(\"&\").join(\"&amp;\").split(LT).join(\"&lt;\").split(GT).join(\"&gt;\"); }\n  function addBtn(){\n    var w = document.getElementById(\"detailWrap\");\n    if (!w) return;\n    var h = w.querySelector(\".card-header\");\n    if (!h) return;\n    if (document.getElementById(\"mvt63PdfBtn\")) return;\n    var b = document.createElement(\"button\");\n    b.id = \"mvt63PdfBtn\";\n    b.textContent = \"\\uD83D\\uDCC4 Exporter PDF\";\n    b.style.cssText = \"margin-left:auto;background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap\";\n    b.onclick = exp;\n    h.appendChild(b);\n    console.log(\"[v6 MVT63] button added\");\n  }\n  function exp(){\n    var tb = document.getElementById(\"detailBody\");\n    if (!tb || tb.children.length === 0){ alert(\"Cliquez d abord sur Calculer.\"); return; }\n    var rows = [];\n    for (var i=0;i\u003Ctb.children.length;i++){\n      var cells = [];\n      for (var j=0;j\u003Ctb.children[i].children.length;j++) cells.push(tb.children[i].children[j].textContent.trim());\n      rows.push(cells);\n    }\n    var total = document.getElementById(\"kpiTotal\").textContent.trim();\n    var count = document.getElementById(\"kpiRows\").textContent.trim();\n    var css = \"body{font-family:Arial,sans-serif;background:#FAF6EC;padding:24px;margin:0}\"\n      + \"h1{font-size:20px;color:#8B6914;margin:0 0 6px}\"\n      + \".s{font-size:13px;color:#8B7A5F;margin-bottom:18px}\"\n      + \"table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #EDE0BF;margin-bottom:14px}\"\n      + \"th{background:#FBF5E0;color:#8B6914;padding:9px 8px;border:1px solid #D9C48A;font-size:11px}\"\n      + \"td{padding:8px;border:1px solid #D9C48A;text-align:center}\"\n      + \".tb{display:flex;gap:10px;justify-content:flex-end;margin-bottom:16px}\"\n      + \".bt{background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}\"\n      + \".bt.g{background:#fff;color:#8B6914;border:1px solid #EDE0BF}\"\n      + \".tot{margin-top:14px;padding:12px 18px;background:linear-gradient(135deg,#F5E6B3,#EAD48A);border:1px solid #D4BF7F;border-radius:8px;display:flex;justify-content:space-between;font-weight:700;color:#5C4610}\"\n      + \"@media print{.tb{display:none}body{background:#fff;padding:0}}\";\n    var hd = [\"Cat\\u00e9gorie\",\"Indice\",\"Montant\",\"Date d\\u00e9but\",\"Date fin\",\"Jours\",\"Montant Total\"];\n    var h = LT+\"!DOCTYPE html\"+GT+H(\"html\",\"lang=\\\"fr\\\"\",\n      H(\"head\",\"\",H(\"meta\",\"charset=\\\"UTF-8\\\"\")+H(\"title\",\"\",\"Detail MVT 63\")+H(\"style\",\"\",css))\n      + LT+\"body\"+GT\n      + H(\"div\",\"class=\\\"tb\\\"\",\n        H(\"button\",\"class=\\\"bt\\\" onclick=\\\"window.print()\\\"\",\"\\uD83D\\uDDA8 Imprimer / Enregistrer en PDF\")\n        + H(\"button\",\"class=\\\"bt g\\\" onclick=\\\"window.close()\\\"\",\"\\u2715 Fermer\")\n      )\n      + H(\"h1\",\"\",\"D\\u00e9tail du rappel - MVT 63\")\n      + H(\"div\",\"class=\\\"s\\\"\",\"Lignes : \"+esc(count))\n      + H(\"table\",\"\",\n        H(\"thead\",\"\",H(\"tr\",\"\",hd.map(function(x){return H(\"th\",\"\",x);}).join(\"\")))\n        + H(\"tbody\",\"\",rows.map(function(r){return H(\"tr\",\"\",r.map(function(c){return H(\"td\",\"\",esc(c));}).join(\"\"));}).join(\"\"))\n      )\n      + H(\"div\",\"class=\\\"tot\\\"\",H(\"span\",\"\",\"TOTAL\")+H(\"span\",\"\",esc(total)))\n      + LT+\"/body\"+GT+LT+\"/html\"+GT\n    );\n    var w = window.open(\"\",\"_blank\");\n    if (!w){ alert(\"Autorisez les pop-ups.\"); return; }\n    w.document.open(); w.document.write(h); w.document.close();\n  }\n  function init(){ addBtn(); setTimeout(addBtn, 500); setTimeout(addBtn, 1500); }\n  if (document.readyState === \"loading\") document.addEventListener(\"DOMContentLoaded\", init);\n  else init();\n})();";
+  function inject(h){
+    var SC = String.fromCharCode(60) + "/script" + String.fromCharCode(62);
+    var i = h.lastIndexOf(SC);
+    if (i === -1) { console.warn("[v6] pas de fermeture script pour buildMvt63Html"); return h; }
+    var inner = h.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 5000) { console.warn("[v6] IIFE introuvable pour buildMvt63Html"); return h; }
+    return inner.slice(0, ii) + CODE + String.fromCharCode(10) + h.slice(ii);
+  }
+  function wrap(){
+    if (window.__wMvt63_w) return;
+    var orig = window.buildMvt63Html;
+    if (typeof orig !== "function") return;
+    window.buildMvt63Html = function(){ return inject(orig.apply(this, arguments)); };
+    window.__wMvt63_w = true;
+    console.log("[v6] buildMvt63Html wrapped OK");
+  }
+  if (typeof window.buildMvt63Html === "function") wrap();
+  else {
+    var n = 0;
+    var t = setInterval(function(){
+      n++;
+      if (typeof window.buildMvt63Html === "function"){ clearInterval(t); wrap(); }
+      else if (n > 200) { clearInterval(t); console.warn("[v6] buildMvt63Html never appeared"); }
+    }, 50);
+  }
+})();
+(function(){
+  if (window.__wCalc563) return;
+  window.__wCalc563 = true;
+  var CODE = "(function(){\n  var LT = String.fromCharCode(60), GT = String.fromCharCode(62);\n  function H(n,a,c){ return LT+n+(a?\" \"+a:\"\")+GT+(c||\"\")+LT+\"/\"+n+GT; }\n  function esc(s){ return String(s).split(\"&\").join(\"&amp;\").split(LT).join(\"&lt;\").split(GT).join(\"&gt;\"); }\n  function addBtns(){\n    var blocks = document.querySelectorAll(\".sous-periode-block\");\n    for (var i=0;i\u003Cblocks.length;i++){\n      var b = blocks[i];\n      if (b.querySelector(\".sub-pdf-btn\")) continue;\n      var t = b.querySelector(\".sous-periode-title\");\n      if (!t) continue;\n      var btn = document.createElement(\"button\");\n      btn.type = \"button\";\n      btn.className = \"sub-pdf-btn\";\n      btn.textContent = \"\\uD83D\\uDCC4 Exporter PDF\";\n      btn.style.cssText = \"display:block;margin:0 auto 10px;padding:6px 14px;background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600\";\n      btn.onclick = function(){ expBlock(this); };\n      t.parentNode.insertBefore(btn, t.nextSibling);\n    }\n    if (blocks.length \u003E 0) console.log(\"[v6 CALC563] buttons added for \" + blocks.length + \" block(s)\");\n  }\n  function expBlock(btn){\n    var block = btn.closest(\".sous-periode-block\");\n    if (!block) return;\n    var tEl = block.querySelector(\".sous-periode-title\");\n    var title = tEl ? tEl.textContent.trim() : \"Sous-periode\";\n    var info = [];\n    var ibars = block.querySelectorAll(\".info-bar\");\n    for (var ib=0;ib\u003Cibars.length;ib++){\n      var ch = ibars[ib].children;\n      for (var j=0;j\u003Cch.length;j++){\n        if (ch[j].tagName !== \"DIV\") continue;\n        var l = ch[j].querySelector(\".lbl\"), v = ch[j].querySelector(\".val\");\n        if (l && v) info.push({l:l.textContent.trim(), v:v.textContent.trim()});\n      }\n    }\n    var tbs = block.querySelectorAll(\"table.result-tbl\");\n    var tdata = [];\n    for (var t=0;t\u003Ctbs.length;t++){\n      var hdrs = [];\n      var ths = tbs[t].querySelectorAll(\"thead th\");\n      for (var hh=0;hh\u003Cths.length;hh++) hdrs.push(ths[hh].textContent.trim());\n      var rs = [];\n      var trs = tbs[t].querySelectorAll(\"tbody tr\");\n      for (var r=0;r\u003Ctrs.length;r++){\n        var cs = [];\n        var tds = trs[r].querySelectorAll(\"td\");\n        for (var c=0;c\u003Ctds.length;c++) cs.push(tds[c].textContent.trim());\n        rs.push(cs);\n      }\n      tdata.push({h:hdrs, r:rs});\n    }\n    var css = \"body{font-family:Arial,sans-serif;background:#FAF6EC;padding:24px;margin:0}\"\n      + \"h1{font-size:20px;color:#8B6914;margin:0 0 6px}\"\n      + \".inf{font-size:13px;color:#8B7A5F;margin-bottom:18px;padding:10px 14px;background:#FBF5E0;border:1px solid #EDE0BF;border-radius:8px}\"\n      + \".inf span{display:inline-block;margin-right:16px}\"\n      + \".inf b{color:#5C4610}\"\n      + \"table{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #EDE0BF;margin-bottom:14px}\"\n      + \"th{background:#FBF5E0;color:#8B6914;padding:9px 8px;border:1px solid #D9C48A;font-size:11px}\"\n      + \"td{padding:8px;border:1px solid #D9C48A;text-align:center}\"\n      + \".tb{display:flex;gap:10px;justify-content:flex-end;margin-bottom:16px}\"\n      + \".bt{background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}\"\n      + \".bt.g{background:#fff;color:#8B6914;border:1px solid #EDE0BF}\"\n      + \"@media print{.tb{display:none}body{background:#fff;padding:0}}\";\n    var tHtml = tdata.map(function(t){\n      return H(\"table\",\"\",\n        H(\"thead\",\"\",H(\"tr\",\"\",t.h.map(function(x){return H(\"th\",\"\",esc(x));}).join(\"\")))\n        + H(\"tbody\",\"\",t.r.map(function(r){return H(\"tr\",\"\",r.map(function(c){return H(\"td\",\"\",esc(c));}).join(\"\"));}).join(\"\"))\n      );\n    }).join(\"\");\n    var iHtml = info.map(function(x){return H(\"span\",\"\",H(\"b\",\"\",esc(x.l))+\" \"+esc(x.v));}).join(\"\");\n    var h = LT+\"!DOCTYPE html\"+GT+H(\"html\",\"lang=\\\"fr\\\"\",\n      H(\"head\",\"\",H(\"meta\",\"charset=\\\"UTF-8\\\"\")+H(\"title\",\"\",esc(title))+H(\"style\",\"\",css))\n      + LT+\"body\"+GT\n      + H(\"div\",\"class=\\\"tb\\\"\",\n        H(\"button\",\"class=\\\"bt\\\" onclick=\\\"window.print()\\\"\",\"\\uD83D\\uDDA8 Imprimer / Enregistrer en PDF\")\n        + H(\"button\",\"class=\\\"bt g\\\" onclick=\\\"window.close()\\\"\",\"\\u2715 Fermer\")\n      )\n      + H(\"h1\",\"\",esc(title))\n      + H(\"div\",\"class=\\\"inf\\\"\",iHtml)\n      + tHtml\n      + LT+\"/body\"+GT+LT+\"/html\"+GT\n    );\n    var w = window.open(\"\",\"_blank\");\n    if (!w){ alert(\"Autorisez les pop-ups.\"); return; }\n    w.document.open(); w.document.write(h); w.document.close();\n  }\n  function init(){\n    if (typeof calculer === \"function\"){\n      var orig = calculer;\n      calculer = function(){ var r = orig.apply(this, arguments); setTimeout(addBtns, 250); setTimeout(addBtns, 800); return r; };\n      var bc = document.getElementById(\"cCalcBtn\");\n      if (bc) bc.onclick = calculer;\n    }\n    setTimeout(addBtns, 300);\n  }\n  if (document.readyState === \"loading\") document.addEventListener(\"DOMContentLoaded\", init);\n  else init();\n})();";
+  function inject(h){
+    var SC = String.fromCharCode(60) + "/script" + String.fromCharCode(62);
+    var i = h.lastIndexOf(SC);
+    if (i === -1) { console.warn("[v6] pas de fermeture script pour buildCalcul538563Html"); return h; }
+    var inner = h.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 5000) { console.warn("[v6] IIFE introuvable pour buildCalcul538563Html"); return h; }
+    return inner.slice(0, ii) + CODE + String.fromCharCode(10) + h.slice(ii);
+  }
+  function wrap(){
+    if (window.__wCalc563_w) return;
+    var orig = window.buildCalcul538563Html;
+    if (typeof orig !== "function") return;
+    window.buildCalcul538563Html = function(){ return inject(orig.apply(this, arguments)); };
+    window.__wCalc563_w = true;
+    console.log("[v6] buildCalcul538563Html wrapped OK");
+  }
+  if (typeof window.buildCalcul538563Html === "function") wrap();
+  else {
+    var n = 0;
+    var t = setInterval(function(){
+      n++;
+      if (typeof window.buildCalcul538563Html === "function"){ clearInterval(t); wrap(); }
+      else if (n > 200) { clearInterval(t); console.warn("[v6] buildCalcul538563Html never appeared"); }
+    }, 50);
+  }
+})();
+</script>
+
+<script>
+/* PATCH_PDF_V7_APPLIED */
+(function(){
+  if (window.__wMvt63v7) return;
+  window.__wMvt63v7 = true;
+  var CODE = "(function(){\n  function addBtn(){\n    var w = document.getElementById(\"detailWrap\");\n    if (!w) return;\n    var h = w.querySelector(\".card-header\");\n    if (!h) return;\n    var existing = document.getElementById(\"mvt63PdfBtn\");\n    if (existing) {\n      existing.onclick = exportPdf;\n      return;\n    }\n    var b = document.createElement(\"button\");\n    b.id = \"mvt63PdfBtn\";\n    b.type = \"button\";\n    b.textContent = \"\\uD83D\\uDCC4 Exporter PDF\";\n    b.style.cssText = \"margin-left:auto;background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap\";\n    b.onclick = exportPdf;\n    h.appendChild(b);\n    console.log(\"[v7 MVT63] button added\");\n  }\n  function exportPdf(){\n    var tb = document.getElementById(\"detailBody\");\n    if (!tb || tb.children.length === 0){ alert(\"Veuillez d abord cliquer sur Calculer.\"); return; }\n    var rows = [];\n    for (var i = 0; i \u003C tb.children.length; i++){\n      var cells = [];\n      for (var j = 0; j \u003C tb.children[i].children.length; j++) cells.push(tb.children[i].children[j].textContent.trim());\n      rows.push(cells);\n    }\n    var total = document.getElementById(\"kpiTotal\").textContent.trim();\n    rows.push([\"TOTAL\", \"\", \"\", \"\", \"\", \"\", total]);\n    var M2Pdf = null;\n    try { if (window.parent && window.parent.M2Pdf) M2Pdf = window.parent.M2Pdf; } catch(e){ console.error(\"[v7 MVT63] parent access:\", e); }\n    if (!M2Pdf || typeof M2Pdf.tableReport !== \"function\"){ alert(\"Generateur PDF non disponible. Ouvrez l application dans le contexte M2.\"); return; }\n    try {\n      var u8 = M2Pdf.tableReport({\n        title: \"Detail du rappel - MVT 63\",\n        cols: [\n          { label: \"Categorie\", w: 60, align: \"center\" },\n          { label: \"Indice\", w: 55, align: \"center\" },\n          { label: \"Montant\", w: 80, align: \"right\" },\n          { label: \"Date debut\", w: 75, align: \"center\" },\n          { label: \"Date fin\", w: 75, align: \"center\" },\n          { label: \"Jours\", w: 55, align: \"center\" },\n          { label: \"Montant Total\", w: 85, align: \"right\" }\n        ],\n        rows: rows,\n        totalRow: true,\n        rowH: 16,\n        fontSize: 10,\n        docTitle: \"Detail MVT 63\"\n      });\n      var today = new Date().toISOString().slice(0, 10);\n      M2Pdf.download(u8, \"Detail_MVT63_\" + today + \".pdf\");\n      console.log(\"[v7 MVT63] PDF exported\");\n    } catch(err){ console.error(\"[v7 MVT63]\", err); alert(\"Erreur PDF : \" + (err && err.message ? err.message : err)); }\n  }\n  function init(){ addBtn(); setTimeout(addBtn, 500); setTimeout(addBtn, 1500); }\n  if (document.readyState === \"loading\") document.addEventListener(\"DOMContentLoaded\", init);\n  else init();\n})();";
+  function inject(h){
+    var SC = String.fromCharCode(60) + "/script" + String.fromCharCode(62);
+    var i = h.lastIndexOf(SC);
+    if (i === -1) { console.warn("[v7] pas de fermeture script pour buildMvt63Html"); return h; }
+    var inner = h.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 5000) { console.warn("[v7] IIFE introuvable pour buildMvt63Html"); return h; }
+    return inner.slice(0, ii) + CODE + String.fromCharCode(10) + h.slice(ii);
+  }
+  function wrap(){
+    if (window.__wMvt63v7_w) return;
+    var orig = window.buildMvt63Html;
+    if (typeof orig !== "function") return;
+    window.buildMvt63Html = function(){ return inject(orig.apply(this, arguments)); };
+    window.__wMvt63v7_w = true;
+    console.log("[v7] buildMvt63Html wrapped OK");
+  }
+  if (typeof window.buildMvt63Html === "function") wrap();
+  else {
+    var n = 0;
+    var t = setInterval(function(){
+      n++;
+      if (typeof window.buildMvt63Html === "function"){ clearInterval(t); wrap(); }
+      else if (n > 200) { clearInterval(t); console.warn("[v7] buildMvt63Html never appeared"); }
+    }, 50);
+  }
+})();
+(function(){
+  if (window.__wCalc563v7) return;
+  window.__wCalc563v7 = true;
+  var CODE = "(function(){\n  function addBtns(){\n    var blocks = document.querySelectorAll(\".sous-periode-block\");\n    for (var i = 0; i \u003C blocks.length; i++){\n      var b = blocks[i];\n      var existing = b.querySelector(\".sub-pdf-btn\");\n      if (existing){ existing.onclick = function(){ exportBlock(this); }; continue; }\n      var t = b.querySelector(\".sous-periode-title\");\n      if (!t) continue;\n      var btn = document.createElement(\"button\");\n      btn.type = \"button\";\n      btn.className = \"sub-pdf-btn\";\n      btn.textContent = \"\\uD83D\\uDCC4 Exporter PDF\";\n      btn.style.cssText = \"display:block;margin:0 auto 10px;padding:6px 14px;background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600\";\n      btn.onclick = function(){ exportBlock(this); };\n      t.parentNode.insertBefore(btn, t.nextSibling);\n    }\n    if (blocks.length \u003E 0) console.log(\"[v7 CALC563] buttons for \" + blocks.length + \" block(s)\");\n  }\n  function exportBlock(btn){\n    var block = btn.closest(\".sous-periode-block\");\n    if (!block) return;\n    var tEl = block.querySelector(\".sous-periode-title\");\n    var title = tEl ? tEl.textContent.trim() : \"Sous-periode\";\n    var baremeDate = \"\", delta = \"\";\n    var ibars = block.querySelectorAll(\".info-bar\");\n    for (var ib = 0; ib \u003C ibars.length; ib++){\n      var chs = ibars[ib].children;\n      for (var j = 0; j \u003C chs.length; j++){\n        if (chs[j].tagName !== \"DIV\") continue;\n        var l = chs[j].querySelector(\".lbl\");\n        var v = chs[j].querySelector(\".val\");\n        if (l && v){\n          var lt = l.textContent.trim();\n          if (lt.indexOf(\"Bar\") !== -1) baremeDate = v.textContent.trim();\n          if (lt.indexOf(\"Delta\") !== -1) delta = v.textContent.trim();\n        }\n      }\n    }\n    var rows = [];\n    var t1 = block.querySelector(\"table.result-tbl.tbl1\");\n    if (t1){\n      var trs1 = t1.querySelectorAll(\"tbody tr\");\n      for (var i = 0; i \u003C trs1.length; i++){\n        var tds1 = trs1[i].querySelectorAll(\"td\");\n        if (tds1.length \u003C 2) continue;\n        var rub = tds1[0].textContent.trim();\n        var val = tds1[1].textContent.trim();\n        if (rub === \"Solde\") rows.push([rub, \"\", val, \"\", \"\"]);\n        else rows.push([rub, val, \"\", \"\", \"\"]);\n      }\n    }\n    var t2 = block.querySelector(\"table.result-tbl.tbl2\");\n    if (t2){\n      var lastJours = \"\";\n      var trs2 = t2.querySelectorAll(\"tbody tr\");\n      for (var k = 0; k \u003C trs2.length; k++){\n        var tds2 = trs2[k].querySelectorAll(\"td\");\n        if (tds2.length \u003E= 4){\n          var jc = tds2[2];\n          var jv = jc.textContent.trim();\n          var rs = parseInt(jc.getAttribute(\"rowspan\") || \"1\", 10);\n          rows.push([tds2[0].textContent.trim(), \"\", tds2[1].textContent.trim(), jv, tds2[3].textContent.trim()]);\n          lastJours = (rs \u003E 1) ? jv : \"\";\n        } else if (tds2.length === 3){\n          rows.push([tds2[0].textContent.trim(), \"\", tds2[1].textContent.trim(), lastJours, tds2[2].textContent.trim()]);\n          lastJours = \"\";\n        }\n      }\n    }\n    var M2Pdf = null;\n    try { if (window.parent && window.parent.M2Pdf) M2Pdf = window.parent.M2Pdf; } catch(e){ console.error(\"[v7 CALC563] parent access:\", e); }\n    if (!M2Pdf || typeof M2Pdf.tableReport !== \"function\"){ alert(\"Generateur PDF non disponible. Ouvrez l application dans le contexte M2.\"); return; }\n    var titleLines = [\"Detail du calcul 538 et 563\", title];\n    var extra = [];\n    if (baremeDate) extra.push(\"Bareme du \" + baremeDate);\n    if (delta) extra.push(\"Delta : \" + delta);\n    if (extra.length) titleLines.push(extra.join(\" - \"));\n    try {\n      var u8 = M2Pdf.tableReport({\n        titleLines: titleLines,\n        cols: [\n          { label: \"Rubrique\", w: 100, align: \"left\" },\n          { label: \"Montant\", w: 90, align: \"right\" },\n          { label: \"Base\", w: 100, align: \"right\" },\n          { label: \"Jours\", w: 60, align: \"center\" },\n          { label: \"Montant Final\", w: 100, align: \"right\" }\n        ],\n        rows: rows,\n        rowH: 16,\n        fontSize: 10,\n        docTitle: \"Detail Calcul 538 et 563\"\n      });\n      var today = new Date().toISOString().slice(0, 10);\n      var m = title.match(/Sous-p[ee\\u00e9\\u00e8]riode\\s+(\\d+)/i);\n      var num = m ? m[1] : \"\";\n      var fn = \"Detail_Calcul538-563\" + (num ? \"_Periode-\" + num : \"\") + \"_\" + today + \".pdf\";\n      M2Pdf.download(u8, fn);\n      console.log(\"[v7 CALC563] PDF exported: \" + fn);\n    } catch(err){ console.error(\"[v7 CALC563]\", err); alert(\"Erreur PDF : \" + (err && err.message ? err.message : err)); }\n  }\n  function init(){\n    if (typeof calculer === \"function\"){\n      var orig = calculer;\n      calculer = function(){ var r = orig.apply(this, arguments); setTimeout(addBtns, 250); setTimeout(addBtns, 800); return r; };\n      var bc = document.getElementById(\"cCalcBtn\");\n      if (bc) bc.onclick = calculer;\n    }\n    setTimeout(addBtns, 300);\n  }\n  if (document.readyState === \"loading\") document.addEventListener(\"DOMContentLoaded\", init);\n  else init();\n})();";
+  function inject(h){
+    var SC = String.fromCharCode(60) + "/script" + String.fromCharCode(62);
+    var i = h.lastIndexOf(SC);
+    if (i === -1) { console.warn("[v7] pas de fermeture script pour buildCalcul538563Html"); return h; }
+    var inner = h.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 5000) { console.warn("[v7] IIFE introuvable pour buildCalcul538563Html"); return h; }
+    return inner.slice(0, ii) + CODE + String.fromCharCode(10) + h.slice(ii);
+  }
+  function wrap(){
+    if (window.__wCalc563v7_w) return;
+    var orig = window.buildCalcul538563Html;
+    if (typeof orig !== "function") return;
+    window.buildCalcul538563Html = function(){ return inject(orig.apply(this, arguments)); };
+    window.__wCalc563v7_w = true;
+    console.log("[v7] buildCalcul538563Html wrapped OK");
+  }
+  if (typeof window.buildCalcul538563Html === "function") wrap();
+  else {
+    var n = 0;
+    var t = setInterval(function(){
+      n++;
+      if (typeof window.buildCalcul538563Html === "function"){ clearInterval(t); wrap(); }
+      else if (n > 200) { clearInterval(t); console.warn("[v7] buildCalcul538563Html never appeared"); }
+    }, 50);
+  }
+})();
+</script>
+
+<script>
+/* PATCH_PDF_V8_COLOR_APPLIED */
+(function(){
+  if (!window.M2Pdf) { console.warn("[v8] M2Pdf absent"); return; }
+  if (window.M2Pdf.colorReport) return;
+  var WIN = {8364:128,8218:130,402:131,8222:132,8230:133,8224:134,8225:135,710:136,8240:137,352:138,8249:139,338:140,381:142,8216:145,8217:146,8220:147,8221:148,8226:149,8211:150,8212:151,732:152,8482:153,353:154,8250:155,339:156,382:158,376:159};
+  function rgb(h){ h=h.replace("#",""); if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; return (parseInt(h.substr(0,2),16)/255).toFixed(3)+" "+(parseInt(h.substr(2,2),16)/255).toFixed(3)+" "+(parseInt(h.substr(4,2),16)/255).toFixed(3); }
+  function esc(s){ var o=""; for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); if(c===40||c===41||c===92) o+="\\"+s.charAt(i); else if(c<32||c>126){ if(c<256){ var oc=c.toString(8); while(oc.length<3) oc="0"+oc; o+="\\"+oc; } else if(WIN[c]){ var wc=WIN[c].toString(8); while(wc.length<3) wc="0"+wc; o+="\\"+wc; } else o+="?"; } else o+=s.charAt(i); } return o; }
+  function textW(s,size,bold){ var w=0,f=bold?0.55:0.52; for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); if(c===32) w+=0.278; else if(c===44||c===46) w+=0.278; else if(c>=48&&c<=57) w+=0.556; else w+=f; } return w*size; }
+  window.M2Pdf.colorReport = function(opts){
+    var PW = 595.28, PH = 841.89;
+    var M = 34, CW = PW - 2*M;
+    var pages = [], ops = null, y = 0;
+    var pageBg = opts.pageBg || "#FFFFFF";
+    function T(x,yb,s,bold,size,color){ ops.push("BT /"+(bold?"F2":"F1")+" "+size+" Tf "+rgb(color)+" rg "+x.toFixed(2)+" "+yb.toFixed(2)+" Td ("+esc(s)+") Tj ET"); }
+    function R(x,yTop,w,h,fill,stroke,lw){ var yb=yTop-h,s="q "; if(fill) s+=rgb(fill)+" rg "; if(stroke) s+=rgb(stroke)+" RG "+(lw||0.6)+" w "; s+=x.toFixed(2)+" "+yb.toFixed(2)+" "+w.toFixed(2)+" "+h.toFixed(2)+" re "; s+=(fill&&stroke?"B":fill?"f":"S")+" Q"; ops.push(s); }
+    function newPage(){ ops=[]; pages.push(ops); y=PH-M; if(pageBg!=="#FFFFFF"){ R(0,PH,PW,PH,pageBg,null,0); } }
+    newPage();
+    if(opts.banner){
+      var b=opts.banner, bh=b.height||46;
+      R(0,PH,PW,bh,b.bg||"#8B6914",null,0);
+      var bSize=b.size||16, bLines=Array.isArray(b.lines)?b.lines:[b.text||""];
+      bLines.forEach(function(line,i){ if(!line) return; var tw=textW(line,bSize,true); var totalH=bLines.length*(bSize+4); var lineY=PH-bh/2+totalH/2-(i+0.5)*(bSize+4); T((PW-tw)/2,lineY-bSize*0.35,line,true,bSize,b.color||"#FFFFFF"); });
+      y=PH-bh-8;
+    }
+    (opts.titleLines||[]).forEach(function(tl){ if(typeof tl==="string") tl={text:tl,size:12,color:"#5C4610",bold:true}; var tw=textW(tl.text,tl.size||12,tl.bold!==false); T((PW-tw)/2,y-(tl.size||12),tl.text,tl.bold!==false,tl.size||12,tl.color||"#5C4610"); y-=(tl.size||12)+6; });
+    if(opts.subtitle){ var sts=Array.isArray(opts.subtitle)?opts.subtitle:[opts.subtitle]; sts.forEach(function(line){ var tw=textW(line,10,false); T((PW-tw)/2,y-10,line,false,10,opts.subtitleColor||"#6D5236"); y-=14; }); y-=6; }
+    if(opts.infoBox){ var ib=opts.infoBox, ibH=ib.height||24; R(M,y,CW,ibH,ib.bg||"#FBF5E0",ib.border||"#D9C48A",0.6); var ibtw=textW(ib.text,10,false); T((PW-ibtw)/2,y-ibH/2-3,ib.text,false,10,ib.color||"#5C4610"); y-=ibH+10; }
+    (opts.sections||[]).forEach(function(sec){
+      if(sec.title){ if(y-20<M+50){ newPage(); } var tw=textW(sec.title,11,true); T((PW-tw)/2,y-12,sec.title,true,11,"#5C4610"); y-=18; ops.push("q "+rgb("#D9C48A")+" RG 0.5 w "+(M).toFixed(2)+" "+y.toFixed(2)+" m "+(PW-M).toFixed(2)+" "+y.toFixed(2)+" l S Q"); y-=8; }
+      var cols=sec.headers; var tabW=0; cols.forEach(function(c){ tabW+=c.w; }); var x0=(PW-tabW)/2; var rowH=sec.rowH||18; var fs=sec.fontSize||10;
+      var hdrBg=sec.headerBg||"#FBF5E0", hdrColor=sec.headerColor||"#8B6914", hdrBorder=sec.headerBorder||"#D9C48A";
+      var cellBg=sec.cellBg||"#FFFFFF", cellColor=sec.cellColor||"#2B1F0F", cellBorder=sec.cellBorder||"#D9C48A";
+      function drawHeader(){ var cx=x0; cols.forEach(function(c){ R(cx,y,c.w,rowH,hdrBg,hdrBorder,0.6); var tw=textW(c.label,fs,true); var tx=(c.align==="right")?cx+c.w-5-tw:(c.align==="left")?cx+5:cx+(c.w-tw)/2; T(tx,y-rowH/2-fs*0.35,c.label,true,fs,hdrColor); cx+=c.w; }); y-=rowH; }
+      if(y-rowH<M+30){ newPage(); }
+      drawHeader();
+      sec.rows.forEach(function(row,ri){
+        if(y-rowH<M+24){ newPage(); drawHeader(); }
+        var rowStyle=(sec.rowStyles&&sec.rowStyles[ri])||{};
+        var thisBg=rowStyle.bg||cellBg, thisBold=rowStyle.bold||false, thisBorder=rowStyle.border||cellBorder;
+        var cx=x0;
+        row.forEach(function(cell,ci){
+          var col=cols[ci]; if(!col) return;
+          var val=cell==null?"":String(cell);
+          var cellStyle=(sec.cellStyles&&sec.cellStyles[ri+"-"+ci])||{};
+          var cb=cellStyle.bg||thisBg, cc=cellStyle.color||rowStyle.color||cellColor;
+          var cbBold=cellStyle.bold!==undefined?cellStyle.bold:thisBold;
+          R(cx,y,col.w,rowH,cb,thisBorder,0.5);
+          if(val!==""){ var tw=textW(val,fs,cbBold); var tx=(col.align==="right")?cx+col.w-5-tw:(col.align==="left")?cx+5:cx+(col.w-tw)/2; T(tx,y-rowH/2-fs*0.35,val,cbBold,fs,cc); }
+          cx+=col.w;
+        });
+        y-=rowH;
+      });
+      y-=14;
+    });
+    var N=pages.length;
+    pages.forEach(function(p,i){ ops=p; var txt="Page "+(i+1)+" sur "+N; var tw=textW(txt,9,false); T((PW-tw)/2,24,txt,false,9,"#A8927A"); });
+    var objs=[], out="%PDF-1.4\n%\xE2\xE3\xCF\xD3\n", offs=[], kids=[];
+    for(var i=0;i<N;i++) kids.push((9+2*i)+" 0 R");
+    objs.push("<< /Type /Catalog /Pages 2 0 R >>");
+    objs.push("<< /Type /Pages /Kids ["+kids.join(" ")+"] /Count "+N+" >>");
+    ["Helvetica","Helvetica-Bold","Courier","Courier-Bold"].forEach(function(f){ objs.push("<< /Type /Font /Subtype /Type1 /BaseFont /"+f+" /Encoding /WinAnsiEncoding >>"); });
+    objs.push("<< /Title ("+esc(opts.docTitle||"Rapport")+") /Producer (M2) >>");
+    for(var p2=0;p2<N;p2++){ var c2=pages[p2].join("\n"); objs.push("<< /Length "+c2.length+" >>\nstream\n"+c2+"\nendstream"); objs.push("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "+PW+" "+PH+"] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents "+(8+2*p2)+" 0 R >>"); }
+    objs.forEach(function(o,idx){ offs.push(out.length); out+=(idx+1)+" 0 obj\n"+o+"\nendobj\n"; });
+    var xr=out.length; out+="xref\n0 "+(objs.length+1)+"\n0000000000 65535 f \n";
+    offs.forEach(function(o){ var s=String(o); while(s.length<10) s="0"+s; out+=s+" 00000 n \n"; });
+    out+="trailer\n<< /Size "+(objs.length+1)+" /Root 1 0 R /Info 7 0 R >>\nstartxref\n"+xr+"\n%%EOF";
+    var u8=new Uint8Array(out.length); for(var j=0;j<out.length;j++) u8[j]=out.charCodeAt(j)&255; return u8;
+  };
+  console.log("[v8] M2Pdf.colorReport installed");
+})();
+(function(){
+  if (window.__wMvt63v8) return;
+  window.__wMvt63v8 = true;
+  var CODE = "(function(){\n  function addBtn(){\n    var w=document.getElementById(\"detailWrap\"); if(!w) return;\n    var h=w.querySelector(\".card-header\"); if(!h) return;\n    var existing=document.getElementById(\"mvt63PdfBtn\");\n    if(existing){ existing.onclick=exportPdf; return; }\n    var b=document.createElement(\"button\"); b.id=\"mvt63PdfBtn\"; b.type=\"button\";\n    b.textContent=\"\\uD83D\\uDCC4 Exporter PDF\";\n    b.style.cssText=\"margin-left:auto;background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap\";\n    b.onclick=exportPdf; h.appendChild(b);\n    console.log(\"[v8 MVT63] button added\");\n  }\n  function exportPdf(){\n    var tb=document.getElementById(\"detailBody\");\n    if(!tb||tb.children.length===0){ alert(\"Cliquez sur Calculer d abord.\"); return; }\n    var trs=tb.querySelectorAll(\"tr\"); var rows=[], cellStyles={};\n    for(var i=0;i\u003Ctrs.length;i++){\n      var tds=trs[i].querySelectorAll(\"td\"); var rowData=[];\n      for(var j=0;j\u003Ctds.length;j++){\n        rowData.push(tds[j].textContent.trim());\n        if(j===6) cellStyles[i+\"-6\"]={color:\"#047857\",bold:true};\n        else if(j\u003C=2) cellStyles[i+\"-\"+j]={bold:true};\n      }\n      rows.push(rowData);\n    }\n    var total=document.getElementById(\"kpiTotal\").textContent.trim();\n    var count=document.getElementById(\"kpiRows\").textContent.trim();\n    var totalIdx=rows.length;\n    rows.push([\"TOTAL\",\"\",\"\",\"\",\"\",\"\",total]);\n    cellStyles[totalIdx+\"-6\"]={color:\"#047857\",bold:true};\n    var rowStyles={}; rowStyles[totalIdx]={bg:\"#F5E6B3\",bold:true,border:\"#D4BF7F\"};\n    var M2Pdf=null; try{ if(window.parent&&window.parent.M2Pdf) M2Pdf=window.parent.M2Pdf; }catch(e){ console.error(\"[v8 MVT63] parent:\",e); }\n    if(!M2Pdf||typeof M2Pdf.colorReport!==\"function\"){ alert(\"Generateur PDF couleur non disponible.\"); return; }\n    try{\n      var u8=M2Pdf.colorReport({\n        docTitle:\"Detail MVT 63\",\n        pageBg:\"#FAF6EC\",\n        banner:{text:\"D\\u00e9tail du rappel - MVT 63\",bg:\"#8B6914\",color:\"#FFFFFF\",height:44,size:16},\n        subtitle:\"Lignes calcul\\u00e9es : \"+count,\n        sections:[{\n          headers:[\n            {label:\"Cat\\u00e9gorie\",w:55,align:\"center\"},\n            {label:\"Indice\",w:50,align:\"center\"},\n            {label:\"Montant\",w:80,align:\"right\"},\n            {label:\"Date d\\u00e9but\",w:70,align:\"center\"},\n            {label:\"Date fin\",w:70,align:\"center\"},\n            {label:\"Jours\",w:45,align:\"center\"},\n            {label:\"Montant Total\",w:90,align:\"right\"}\n          ],\n          rows:rows, rowStyles:rowStyles, cellStyles:cellStyles,\n          rowH:18, fontSize:10\n        }]\n      });\n      var today=new Date().toISOString().slice(0,10);\n      M2Pdf.download(u8,\"Detail_MVT63_\"+today+\".pdf\");\n      console.log(\"[v8 MVT63] PDF exported\");\n    }catch(err){ console.error(\"[v8 MVT63]\",err); alert(\"Erreur PDF : \"+(err&&err.message?err.message:err)); }\n  }\n  function init(){ addBtn(); setTimeout(addBtn,500); setTimeout(addBtn,1500); }\n  if(document.readyState===\"loading\") document.addEventListener(\"DOMContentLoaded\",init); else init();\n})();";
+  function inject(h){
+    var SC = String.fromCharCode(60) + "/script" + String.fromCharCode(62);
+    var i = h.lastIndexOf(SC);
+    if (i === -1) { console.warn("[v8] pas de fermeture script buildMvt63Html"); return h; }
+    var inner = h.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 5000) { console.warn("[v8] IIFE introuvable buildMvt63Html"); return h; }
+    return inner.slice(0, ii) + CODE + String.fromCharCode(10) + h.slice(ii);
+  }
+  function wrap(){
+    if (window.__wMvt63v8_w) return;
+    var orig = window.buildMvt63Html;
+    if (typeof orig !== "function") return;
+    window.buildMvt63Html = function(){ return inject(orig.apply(this, arguments)); };
+    window.__wMvt63v8_w = true;
+    console.log("[v8] buildMvt63Html wrapped OK");
+  }
+  if (typeof window.buildMvt63Html === "function") wrap();
+  else {
+    var n = 0;
+    var t = setInterval(function(){
+      n++;
+      if (typeof window.buildMvt63Html === "function"){ clearInterval(t); wrap(); }
+      else if (n > 200) { clearInterval(t); console.warn("[v8] buildMvt63Html never appeared"); }
+    }, 50);
+  }
+})();
+(function(){
+  if (window.__wCalc563v8) return;
+  window.__wCalc563v8 = true;
+  var CODE = "(function(){\n  function addBtns(){\n    var blocks=document.querySelectorAll(\".sous-periode-block\");\n    for(var i=0;i\u003Cblocks.length;i++){\n      var b=blocks[i]; var existing=b.querySelector(\".sub-pdf-btn\");\n      if(existing){ existing.onclick=function(){ exportBlock(this); }; continue; }\n      var t=b.querySelector(\".sous-periode-title\"); if(!t) continue;\n      var btn=document.createElement(\"button\"); btn.type=\"button\"; btn.className=\"sub-pdf-btn\";\n      btn.textContent=\"\\uD83D\\uDCC4 Exporter PDF\";\n      btn.style.cssText=\"display:block;margin:0 auto 10px;padding:6px 14px;background:linear-gradient(135deg,#C9A227,#8B6914);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600\";\n      btn.onclick=function(){ exportBlock(this); };\n      t.parentNode.insertBefore(btn,t.nextSibling);\n    }\n    if(blocks.length\u003E0) console.log(\"[v8 CALC563] buttons for \"+blocks.length+\" block(s)\");\n  }\n  function exportBlock(btn){\n    var block=btn.closest(\".sous-periode-block\"); if(!block) return;\n    var tEl=block.querySelector(\".sous-periode-title\");\n    var title=tEl?tEl.textContent.trim():\"Sous-periode\";\n    var baremeDate=\"\", delta=\"\";\n    var ibars=block.querySelectorAll(\".info-bar\");\n    for(var ib=0;ib\u003Cibars.length;ib++){\n      var divs=ibars[ib].querySelectorAll(\":scope \u003E div\");\n      for(var d=0;d\u003Cdivs.length;d++){\n        var lbl=divs[d].querySelector(\".lbl\"), val=divs[d].querySelector(\".val\");\n        if(lbl&&val){\n          var lt=lbl.textContent.trim();\n          if(lt.indexOf(\"Bar\")!==-1) baremeDate=val.textContent.trim();\n          if(lt.indexOf(\"Delta\")!==-1) delta=val.textContent.trim();\n        }\n      }\n    }\n    var rubRows=[], rubRowStyles={}, rubCellStyles={};\n    var t1=block.querySelector(\"table.result-tbl.tbl1\");\n    if(t1){\n      var trs1=t1.querySelectorAll(\"tbody tr\");\n      for(var i=0;i\u003Ctrs1.length;i++){\n        var tds=trs1[i].querySelectorAll(\"td\"); var row=[];\n        for(var j=0;j\u003Ctds.length;j++) row.push(tds[j].textContent.trim());\n        rubRows.push(row);\n        if(trs1[i].classList.contains(\"grand\")) rubRowStyles[i]={bg:\"#EAD48A\",bold:true,border:\"#C9A227\"};\n        else if(trs1[i].classList.contains(\"tot\")) rubRowStyles[i]={bg:\"#FDF9E8\",bold:true};\n      }\n    }\n    var detRows=[], detRowStyles={}, detCellStyles={};\n    var t2=block.querySelector(\"table.result-tbl.tbl2\");\n    if(t2){\n      var trs2=t2.querySelectorAll(\"tbody tr\"); var lastJours=\"\", remainingSpan=0;\n      for(var i=0;i\u003Ctrs2.length;i++){\n        var tds=trs2[i].querySelectorAll(\"td\"); var row=[];\n        if(tds.length===4){\n          var jCell=tds[2], jText=jCell.textContent.trim(), jSpan=parseInt(jCell.getAttribute(\"rowspan\")||\"1\",10);\n          row=[tds[0].textContent.trim(),tds[1].textContent.trim(),jText,tds[3].textContent.trim()];\n          if(jSpan\u003E1){ lastJours=jText; remainingSpan=jSpan-1; }\n          if(tds[3].classList.contains(\"green\")) detCellStyles[i+\"-3\"]={color:\"#047857\",bold:true};\n        } else if(tds.length===3){\n          row=[tds[0].textContent.trim(),tds[1].textContent.trim(),lastJours,tds[2].textContent.trim()];\n          if(tds[2].classList.contains(\"green\")) detCellStyles[i+\"-3\"]={color:\"#047857\",bold:true};\n          remainingSpan--; if(remainingSpan\u003C=0) lastJours=\"\";\n        } else if(tds.length===2){\n          row=[tds[0].textContent.trim(),\"\",\"\",tds[1].textContent.trim()];\n          if(tds[1].classList.contains(\"green\")) detCellStyles[i+\"-3\"]={color:\"#047857\",bold:true};\n        }\n        detRows.push(row);\n        if(trs2[i].classList.contains(\"grand\")) detRowStyles[i]={bg:\"#EAD48A\",bold:true,border:\"#C9A227\"};\n        else if(trs2[i].classList.contains(\"tot\")) detRowStyles[i]={bg:\"#FDF9E8\",bold:true};\n      }\n    }\n    var M2Pdf=null; try{ if(window.parent&&window.parent.M2Pdf) M2Pdf=window.parent.M2Pdf; }catch(e){ console.error(\"[v8 CALC563] parent:\",e); }\n    if(!M2Pdf||typeof M2Pdf.colorReport!==\"function\"){ alert(\"Generateur PDF couleur non disponible.\"); return; }\n    var spec={\n      docTitle:\"Detail Calcul 538 et 563\",\n      pageBg:\"#FAF6EC\",\n      banner:{text:\"D\\u00e9tail du calcul 538 et 563\",bg:\"#8B6914\",color:\"#FFFFFF\",height:44,size:16},\n      titleLines:[{text:title,size:13,color:\"#5C4610\",bold:true}],\n      sections:[]\n    };\n    if(baremeDate||delta){\n      var parts=[];\n      if(baremeDate) parts.push(\"Bar\\u00e8me du : \"+baremeDate);\n      if(delta) parts.push(\"Delta : \"+delta);\n      spec.infoBox={text:parts.join(\"   \\u2022   \"),bg:\"#FBF5E0\",border:\"#D9C48A\",color:\"#5C4610\",height:24};\n    }\n    if(rubRows.length){\n      spec.sections.push({\n        title:\"Rubriques\",\n        headers:[{label:\"Rubrique\",w:100,align:\"left\"},{label:\"Montant\",w:150,align:\"right\"}],\n        rows:rubRows, rowStyles:rubRowStyles, cellStyles:rubCellStyles, rowH:18, fontSize:10\n      });\n    }\n    if(detRows.length){\n      spec.sections.push({\n        title:\"D\\u00e9tails de calcul\",\n        headers:[{label:\"Rubrique\",w:110,align:\"left\"},{label:\"Base de calcul\",w:130,align:\"right\"},{label:\"Jours\",w:60,align:\"center\"},{label:\"Montant Final\",w:130,align:\"right\"}],\n        rows:detRows, rowStyles:detRowStyles, cellStyles:detCellStyles, rowH:18, fontSize:10\n      });\n    }\n    try{\n      var u8=M2Pdf.colorReport(spec);\n      var today=new Date().toISOString().slice(0,10);\n      var m=title.match(/Sous-p[ee\\u00e9\\u00e8]riode\\s+(\\d+)/i);\n      var num=m?m[1]:\"\";\n      var fn=\"Detail_Calcul538-563\"+(num?\"_Periode-\"+num:\"\")+\"_\"+today+\".pdf\";\n      M2Pdf.download(u8,fn);\n      console.log(\"[v8 CALC563] PDF exported: \"+fn);\n    }catch(err){ console.error(\"[v8 CALC563]\",err); alert(\"Erreur PDF : \"+(err&&err.message?err.message:err)); }\n  }\n  function init(){\n    if(typeof calculer===\"function\"){\n      var orig=calculer;\n      calculer=function(){ var r=orig.apply(this,arguments); setTimeout(addBtns,250); setTimeout(addBtns,800); return r; };\n      var bc=document.getElementById(\"cCalcBtn\"); if(bc) bc.onclick=calculer;\n    }\n    setTimeout(addBtns,300);\n  }\n  if(document.readyState===\"loading\") document.addEventListener(\"DOMContentLoaded\",init); else init();\n})();";
+  function inject(h){
+    var SC = String.fromCharCode(60) + "/script" + String.fromCharCode(62);
+    var i = h.lastIndexOf(SC);
+    if (i === -1) { console.warn("[v8] pas de fermeture script buildCalcul538563Html"); return h; }
+    var inner = h.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 5000) { console.warn("[v8] IIFE introuvable buildCalcul538563Html"); return h; }
+    return inner.slice(0, ii) + CODE + String.fromCharCode(10) + h.slice(ii);
+  }
+  function wrap(){
+    if (window.__wCalc563v8_w) return;
+    var orig = window.buildCalcul538563Html;
+    if (typeof orig !== "function") return;
+    window.buildCalcul538563Html = function(){ return inject(orig.apply(this, arguments)); };
+    window.__wCalc563v8_w = true;
+    console.log("[v8] buildCalcul538563Html wrapped OK");
+  }
+  if (typeof window.buildCalcul538563Html === "function") wrap();
+  else {
+    var n = 0;
+    var t = setInterval(function(){
+      n++;
+      if (typeof window.buildCalcul538563Html === "function"){ clearInterval(t); wrap(); }
+      else if (n > 200) { clearInterval(t); console.warn("[v8] buildCalcul538563Html never appeared"); }
+    }, 50);
+  }
+})();
+</script>
+
+<script>
+/* PATCH_PDF_V9_WHITESPACE_FIX_APPLIED */
+(function(){
+  if (!window.M2Pdf || typeof window.M2Pdf.colorReport !== "function"){
+    console.warn("[v9] colorReport introuvable — v8 doit etre applique avant v9");
+    return;
+  }
+  if (window.M2Pdf.colorReport.__v9cleaned) return;
+  var SPACES = /[\u00A0\u202F\u2007\u2009\u200A\u2028\u2029\uFEFF\u180E]/g;
+  function clean(v){
+    if (v === null || v === undefined) return v;
+    if (typeof v === "string") return v.replace(SPACES, " ");
+    if (Array.isArray(v)) { var arr=[]; for(var i=0;i<v.length;i++) arr.push(clean(v[i])); return arr; }
+    if (typeof v === "object"){
+      var out={};
+      for(var k in v) if(Object.prototype.hasOwnProperty.call(v,k)) out[k]=clean(v[k]);
+      return out;
+    }
+    return v;
+  }
+  var orig = window.M2Pdf.colorReport;
+  var wrapped = function(opts){ return orig(clean(opts)); };
+  wrapped.__v9cleaned = true;
+  window.M2Pdf.colorReport = wrapped;
+  console.log("[v9] colorReport whitespace-fixed installed");
+})();
+</script>
+
+<script>
+/* PATCH_PDF_V10_NO_DELTA_APPLIED */
+(function(){
+  if (!window.M2Pdf || typeof window.M2Pdf.colorReport !== "function"){
+    console.warn("[v10] colorReport introuvable — v8 doit etre applique avant v10");
+    return;
+  }
+  if (window.M2Pdf.colorReport.__v10noDelta) return;
+  var BULLET = String.fromCharCode(0x2022);
+  var RE_DELTA = new RegExp("^\\s*Delta\\s*:", "i");
+  var orig = window.M2Pdf.colorReport;
+  function shallow(o){ var r={}; for(var k in o) if(Object.prototype.hasOwnProperty.call(o,k)) r[k]=o[k]; return r; }
+  var wrapped = function(opts){
+    if (opts && opts.infoBox && typeof opts.infoBox.text === "string"){
+      var parts = opts.infoBox.text.split(BULLET);
+      var kept = [];
+      for (var i = 0; i < parts.length; i++){
+        if (!RE_DELTA.test(parts[i])) kept.push(parts[i]);
+      }
+      var joined = kept.join(BULLET).replace(/^\s+|\s+$/g, "");
+      var newInfo = shallow(opts.infoBox);
+      newInfo.text = joined;
+      var copy = shallow(opts);
+      copy.infoBox = joined ? newInfo : null;
+      opts = copy;
+    }
+    return orig(opts);
+  };
+  wrapped.__v10noDelta = true;
+  window.M2Pdf.colorReport = wrapped;
+  console.log("[v10] colorReport Delta-stripped installed");
+})();
+</script>
 </body>
 </html>
