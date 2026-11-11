@@ -5306,5 +5306,183 @@ var timer=setInterval(function(){
   boot();
 })();
 </script>
+
+<script>
+/* PATCH_V13_CHAPTER_PERSIST_APPLIED */
+(function(){
+  "use strict";
+  if (window.__v13Applied) return;
+  window.__v13Applied = true;
+  console.log("[v13] Fix chapter persistence loading...");
+
+  var autoRows = {};
+
+  function getActeRows(){
+    try { if (typeof acteRows !== "undefined" && acteRows) return acteRows; } catch(e){}
+    return null;
+  }
+
+  function findBadge(sel){
+    if (!sel || !sel.parentNode) return null;
+    return sel.parentNode.querySelector(".im-auto-badge");
+  }
+
+  function addBadge(sel){
+    if (!sel || !sel.parentNode) return;
+    if (findBadge(sel)) return;
+    var b = document.createElement("span");
+    b.className = "im-auto-badge";
+    b.textContent = "\u2713 auto";
+    b.style.cssText = "display:inline-block;margin-left:4px;padding:1px 5px;background:#dcfce7;color:#047857;border-radius:3px;font-size:9px;font-weight:600;vertical-align:middle;white-space:nowrap";
+    sel.parentNode.appendChild(b);
+  }
+
+  function removeBadge(sel){
+    var b = findBadge(sel);
+    if (b) b.remove();
+  }
+
+  function syncChapterToArray(i, value){
+    var arr = getActeRows();
+    if (!arr || !arr[i]) return false;
+    arr[i].chapitre = value;
+    arr[i].__autoChapter = true;
+    return true;
+  }
+
+  function syncIMToArray(i, value){
+    var arr = getActeRows();
+    if (!arr || !arr[i]) return;
+    arr[i].im = value;
+  }
+
+  function reapplyBadges(){
+    var arr = getActeRows();
+    if (!arr) return;
+    for (var i = 0; i < arr.length; i++){
+      if (!arr[i]) continue;
+      var sel = document.getElementById("aCH_" + i);
+      if (!sel) continue;
+      if (arr[i].__autoChapter && arr[i].chapitre){
+        if (sel.value !== arr[i].chapitre) sel.value = arr[i].chapitre;
+        addBadge(sel);
+      }
+    }
+  }
+
+  function onImInput(e){
+    var t = e.target;
+    if (!t || !t.id) return;
+    var m = t.id.match(/^aIM_(\d+)$/);
+    if (!m) return;
+    var i = parseInt(m[1], 10);
+    var v = String(t.value || "").trim().toUpperCase();
+    syncIMToArray(i, v);
+    setTimeout(function(){
+      var sel = document.getElementById("aCH_" + i);
+      if (!sel) return;
+      if (v.length !== 7){
+        if (autoRows[i]){
+          removeBadge(sel);
+          delete autoRows[i];
+          var arr = getActeRows();
+          if (arr && arr[i]) arr[i].__autoChapter = false;
+        }
+        return;
+      }
+      var badge = findBadge(sel);
+      if (badge && sel.value && sel.value !== "__m__"){
+        autoRows[i] = true;
+        var ok = syncChapterToArray(i, sel.value);
+        if (!ok){
+          try { sel.dispatchEvent(new Event("change", { bubbles: true })); } catch(e){}
+        }
+        console.log("[v13] chapitre synchronisé ligne " + (i + 1) + " → " + sel.value);
+      } else if (!badge){
+        delete autoRows[i];
+        var arr2 = getActeRows();
+        if (arr2 && arr2[i] && arr2[i].__autoChapter) arr2[i].__autoChapter = false;
+      }
+    }, 30);
+  }
+
+  function syncAllBeforeAction(){
+    var arr = getActeRows();
+    if (!arr) return;
+    for (var i = 0; i < arr.length; i++){
+      if (!arr[i]) continue;
+      var imEl = document.getElementById("aIM_" + i);
+      if (imEl) arr[i].im = imEl.value;
+      var mvtEl = document.getElementById("aMVT_" + i);
+      if (mvtEl) arr[i].mvt = mvtEl.value;
+      var sel = document.getElementById("aCH_" + i);
+      if (sel && sel.value && sel.value !== "__m__") arr[i].chapitre = sel.value;
+      var rqEl = document.getElementById("aRQ_" + i);
+      if (rqEl) arr[i].remarque = rqEl.value;
+    }
+  }
+
+  function isActionButton(txt){
+    if (!txt) return false;
+    var t = txt.toLowerCase();
+    return t.indexOf("ajouter acte") !== -1 || t.indexOf("enregistrer") !== -1 || t.indexOf("modification") !== -1;
+  }
+
+  function onClickCapture(e){
+    var btn = e.target && e.target.closest ? e.target.closest("button") : null;
+    if (!btn) return;
+    if (!isActionButton(btn.textContent)) return;
+    syncAllBeforeAction();
+  }
+
+  function setupActesRowsObserver(){
+    var c = document.getElementById("actesRows");
+    if (!c || c.__v13obs) return;
+    c.__v13obs = true;
+    var obs = new MutationObserver(function(){
+      setTimeout(reapplyBadges, 20);
+    });
+    obs.observe(c, { childList: true, subtree: true });
+    setTimeout(reapplyBadges, 20);
+  }
+
+  function setupModalObserver(){
+    var modal = document.getElementById("saisieModal");
+    if (!modal || modal.__v13obs) return;
+    modal.__v13obs = true;
+    var obs = new MutationObserver(function(){
+      var isOpen = !modal.classList.contains("hidden");
+      if (isOpen){
+        autoRows = {};
+        setTimeout(function(){
+          setupActesRowsObserver();
+          reapplyBadges();
+        }, 100);
+      }
+    });
+    obs.observe(modal, { attributes: true, attributeFilter: ["class"] });
+  }
+
+  function init(){
+    document.addEventListener("input", onImInput, true);
+    document.addEventListener("click", onClickCapture, true);
+    setupModalObserver();
+    var tries = 0;
+    var iv = setInterval(function(){
+      tries++;
+      setupActesRowsObserver();
+      if (tries > 60) clearInterval(iv);
+    }, 1000);
+    console.log("[v13] Prêt — chapitre persistant activé");
+  }
+
+  function waitV12(){
+    if (window.__v12FsApplied) return setTimeout(init, 500);
+    setTimeout(waitV12, 100);
+  }
+
+  waitV12();
+})();
+</script>
 </body>
 </html>
