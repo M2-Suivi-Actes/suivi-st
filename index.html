@@ -4887,5 +4887,424 @@ var timer=setInterval(function(){
   console.log("[v10] colorReport Delta-stripped installed");
 })();
 </script>
+
+<script>
+/* PATCH_V12_FIRESTORE_APPLIED */
+(function(){
+  "use strict";
+  if (window.__v12FsApplied) return;
+  window.__v12FsApplied = true;
+  var IM = { map: null, chapters: null, meta: null, initialized: false };
+  var DB_NAME = "m2_im_chapter_db";
+  var STORE = "data";
+  var KEY = "current";
+  var CHUNK_MAX_B64 = 800000;
+
+  function imKey(im){
+    var v = 0;
+    for (var i = 0; i < im.length; i++){
+      var c = im.charCodeAt(i), d;
+      if (c >= 48 && c <= 57) d = c - 48;
+      else if (c >= 65 && c <= 90) d = c - 65 + 10;
+      else if (c >= 97 && c <= 122) d = c - 97 + 10;
+      else return null;
+      v = v * 36 + d;
+    }
+    return v;
+  }
+
+  function decodeBin(bytes){
+    if (bytes.length < 16) throw new Error("Fichier trop petit");
+    if (bytes[0] !== 0x4D || bytes[1] !== 0x32 || bytes[2] !== 0x49 || bytes[3] !== 0x43) throw new Error("Magic M2IC invalide");
+    if (bytes[4] !== 1) throw new Error("Version format " + bytes[4] + " non supportée");
+    var count = bytes[8] | (bytes[9] << 8) | (bytes[10] << 16) | (bytes[11] << 24);
+    var nCh = bytes[12];
+    if (count <= 0 || count > 5000000) throw new Error("Count invalide : " + count);
+    if (nCh === 0) throw new Error("Aucun chapitre");
+    var chapters = [];
+    var off = 16;
+    for (var i = 0; i < nCh; i++){
+      var s = "";
+      for (var p = 0; p < 6; p++){
+        var cc = bytes[off++];
+        if (cc !== 0) s += String.fromCharCode(cc);
+      }
+      chapters.push(s.trim());
+    }
+    var map = new Map();
+    var prev = 0;
+    for (var k = 0; k < count; k++){
+      var v = 0, shift = 0, b;
+      while (true){
+        if (off >= bytes.length) throw new Error("Varint tronqué");
+        b = bytes[off++];
+        v |= (b & 0x7F) << shift;
+        if ((b & 0x80) === 0) break;
+        shift += 7;
+        if (shift > 42) throw new Error("Varint trop grand");
+      }
+      prev += v;
+      var ci = bytes[off++];
+      if (ci >= nCh) throw new Error("Index chapitre hors limite");
+      map.set(prev, chapters[ci]);
+    }
+    return { map: map, chapters: chapters, count: count };
+  }
+
+  async function gunzip(u8){
+    if (u8[0] !== 0x1f || u8[1] !== 0x8b) return u8;
+    if (typeof DecompressionStream === "undefined") throw new Error("DecompressionStream non supporté");
+    var ds = new DecompressionStream("gzip");
+    var w = ds.writable.getWriter();
+    w.write(u8); w.close();
+    var r = ds.readable.getReader();
+    var chunks = [], total = 0;
+    while (true){
+      var x = await r.read();
+      if (x.done) break;
+      chunks.push(x.value); total += x.value.length;
+    }
+    var out = new Uint8Array(total), o = 0;
+    for (var i = 0; i < chunks.length; i++){ out.set(chunks[i], o); o += chunks[i].length; }
+    return out;
+  }
+
+  function lookup(im){
+    if (!IM.map) return null;
+    var k = imKey(im);
+    if (k === null) return null;
+    return IM.map.get(k) || null;
+  }
+
+  function openDB(){
+    return new Promise(function(res, rej){
+      var req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = function(e){
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      };
+      req.onsuccess = function(){ res(req.result); };
+      req.onerror = function(){ rej(req.error); };
+    });
+  }
+
+  function dbSave(bytes, meta){
+    return openDB().then(function(db){
+      return new Promise(function(res, rej){
+        var tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).put({ bytes: bytes, meta: meta }, KEY);
+        tx.oncomplete = res; tx.onerror = function(){ rej(tx.error); };
+      });
+    });
+  }
+
+  function dbLoad(){
+    return openDB().then(function(db){
+      return new Promise(function(res, rej){
+        var tx = db.transaction(STORE, "readonly");
+        var req = tx.objectStore(STORE).get(KEY);
+        req.onsuccess = function(){ res(req.result); };
+        req.onerror = function(){ rej(req.error); };
+      });
+    });
+  }
+
+  async function activate(bytes, meta){
+    var dec = await gunzip(bytes);
+    var r = decodeBin(dec);
+    IM.map = r.map; IM.chapters = r.chapters; IM.meta = meta;
+    console.log("[v12fs] IM-Ch actif — " + r.count + " matricules, " + r.chapters.length + " chapitres");
+    try { localStorage.setItem("m2_im_chapter_ping", String(Date.now())); } catch(e){}
+    return r;
+  }
+
+  function b64ToU8(b64){
+    var bin = atob(b64);
+    var u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return u8;
+  }
+
+  function u8ToB64(u8){
+    var s = "";
+    var chunk = 0x8000;
+    for (var i = 0; i < u8.length; i += chunk){
+      s += String.fromCharCode.apply(null, u8.subarray(i, Math.min(i + chunk, u8.length)));
+    }
+    return btoa(s);
+  }
+
+  async function uploadToFirestore(bytes){
+    if (!window._fbReady || !window._db || !window._setDoc) throw new Error("Firebase non disponible");
+    var b64 = u8ToB64(bytes);
+    var totalChunks = Math.max(1, Math.ceil(b64.length / CHUNK_MAX_B64));
+    var meta = {
+      updatedAt: new Date().toISOString(),
+      totalChunks: totalChunks,
+      totalBytes: bytes.length,
+      updatedBy: (document.getElementById("sidebarUser") || {}).textContent || "CHEF_BUREAU",
+      chunks: []
+    };
+    for (var i = 0; i < totalChunks; i++){
+      var slice = b64.slice(i * CHUNK_MAX_B64, (i + 1) * CHUNK_MAX_B64);
+      var chunkRef = window._doc(window._db, "meta", "im_chapter_chunk_" + i);
+      await window._setDoc(chunkRef, { idx: i, data: slice, updatedAt: meta.updatedAt });
+      meta.chunks.push({ idx: i, size: slice.length });
+    }
+    await window._setDoc(window._doc(window._db, "meta", "im_chapter_info"), meta);
+    return meta;
+  }
+
+  async function downloadFromFirestore(){
+    if (!window._fbReady || !window._db || !window._getDoc) throw new Error("Firebase non disponible");
+    var infoSnap = await window._getDoc(window._doc(window._db, "meta", "im_chapter_info"));
+    if (!infoSnap.exists()) throw new Error("Aucune version publiée dans Firestore");
+    var info = infoSnap.data();
+    var b64 = "";
+    for (var i = 0; i < info.totalChunks; i++){
+      var cs = await window._getDoc(window._doc(window._db, "meta", "im_chapter_chunk_" + i));
+      if (!cs.exists()) throw new Error("Chunk " + i + " manquant");
+      b64 += cs.data().data;
+    }
+    var bytes = b64ToU8(b64);
+    var meta = { updatedAt: info.updatedAt, totalBytes: info.totalBytes, updatedBy: info.updatedBy, count: 0, size: bytes.length };
+    await dbSave(bytes, meta);
+    var dec = await activate(bytes, meta);
+    meta.count = dec.count;
+    await dbSave(bytes, meta);
+    return meta;
+  }
+
+  async function refreshStatus(){
+    var el = document.getElementById("imChStatus");
+    if (!el) return;
+    if (IM.meta && IM.map){
+      var d = new Date(IM.meta.updatedAt);
+      var ko = (IM.meta.size / 1024).toFixed(1);
+      el.innerHTML = "\u2713 <b>Version active</b> — " + d.toLocaleString("fr-FR") + " — " + (IM.meta.count || 0).toLocaleString("fr-FR") + " matricules, " + IM.chapters.length + " chapitres — " + ko + " Ko";
+      el.style.background = "var(--green-bg)"; el.style.color = "var(--green)"; el.style.border = "1px solid rgba(63,185,80,.3)";
+    } else {
+      el.innerHTML = "\u26A0 Aucune version chargée — l auto-fill ne fonctionne pas";
+      el.style.background = "var(--orange-bg)"; el.style.color = "var(--orange)"; el.style.border = "1px solid rgba(210,153,34,.3)";
+    }
+  }
+
+  async function handleUpload(file){
+    var prev = document.getElementById("imChPreview");
+    if (prev) prev.textContent = "Lecture du fichier...";
+    try {
+      var ab = await file.arrayBuffer();
+      var bytes = new Uint8Array(ab);
+      var dec = await activate(bytes, { updatedAt: new Date().toISOString(), count: 0, size: bytes.length, pending: true });
+      var meta = { updatedAt: new Date().toISOString(), count: dec.count, size: bytes.length };
+      if (window._fbReady && window._db && window._setDoc){
+        if (prev) prev.textContent = "Envoi vers Firestore (" + (bytes.length / 1024).toFixed(0) + " Ko)...";
+        var upMeta = await uploadToFirestore(bytes);
+        meta.updatedAt = upMeta.updatedAt;
+        await dbSave(bytes, meta);
+        IM.meta = meta;
+        if (prev) prev.textContent = "\u2713 Publié — " + dec.count.toLocaleString("fr-FR") + " matricules, " + upMeta.totalChunks + " chunk(s)";
+        if (typeof toast === "function") toast("✓ Version publiée — " + dec.count.toLocaleString("fr-FR") + " matricules", "success");
+      } else {
+        await dbSave(bytes, meta);
+        IM.meta = meta;
+        if (prev) prev.textContent = "\u26A0 Firebase non disponible — activé localement seulement";
+        if (typeof toast === "function") toast("⚠ Firebase non disponible", "error");
+      }
+      refreshStatus();
+    } catch(e){
+      console.error("[v12fs] upload:", e);
+      if (prev) prev.textContent = "";
+      if (typeof toast === "function") toast("Erreur : " + e.message, "error");
+    }
+  }
+
+  async function forceRefresh(){
+    try {
+      var prev = document.getElementById("imChPreview");
+      if (prev) prev.textContent = "Téléchargement depuis Firestore...";
+      var meta = await downloadFromFirestore();
+      if (prev) prev.textContent = "\u2713 Actualisé — " + meta.count.toLocaleString("fr-FR") + " matricules";
+      refreshStatus();
+      if (typeof toast === "function") toast("✓ Version actualisée", "success");
+    } catch(e){
+      console.error("[v12fs] refresh:", e);
+      if (typeof toast === "function") toast("Erreur : " + e.message, "error");
+    }
+  }
+
+  async function clearLocal(){
+    if (!confirm("Vider le cache local de la liste matricules ?")) return;
+    try {
+      var db = await openDB();
+      await new Promise(function(res, rej){
+        var tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).delete(KEY);
+        tx.oncomplete = res; tx.onerror = function(){ rej(tx.error); };
+      });
+      IM.map = null; IM.chapters = null; IM.meta = null;
+      refreshStatus();
+      if (typeof toast === "function") toast("Cache local vidé", "success");
+    } catch(e){ console.error("[v12fs] clear:", e); }
+  }
+
+  window.imChForceRefresh = forceRefresh;
+  window.imChClearLocal = clearLocal;
+
+  function buildSection(){
+    var h = "";
+    h += "<div class=\"fct\">\uD83D\uDC47 Matricules & Chapitres (auto-remplissage IM \u2192 Chapitre)</div>";
+    h += "<div id=\"imChStatus\" style=\"margin-bottom:14px;padding:12px 14px;border-radius:8px;background:var(--surface2);font-size:13px\">Chargement du statut...</div>";
+    h += "<div class=\"alert ai2\" style=\"font-size:12px\">Chargez le fichier <b>.bin.gz</b> généré par le convertisseur. Les comptables recevront automatiquement la mise à jour via Firestore. Aucun service à activer.</div>";
+    h += "<div style=\"display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px\">";
+    h += "<input type=\"file\" id=\"imChFileInput\" accept=\".bin,.gz,.bin.gz,application/gzip\" style=\"display:none\">";
+    h += "<button class=\"btn bp\" id=\"imChUploadBtn\">\uD83D\uDCC2 Charger un .bin.gz</button>";
+    h += "<button class=\"btn bs\" onclick=\"imChForceRefresh()\">\uD83D\uDD04 Vérifier les mises à jour</button>";
+    h += "<button class=\"btn bd\" onclick=\"imChClearLocal()\">\uD83D\uDDD1 Vider le cache local</button>";
+    h += "</div>";
+    h += "<div id=\"imChPreview\" style=\"font-size:12px;color:var(--text2)\"></div>";
+    return h;
+  }
+
+  function bindSection(){
+    var content = document.getElementById("configContent");
+    if (!content) return;
+    var navB = document.getElementById("nav-bureau-section");
+    var isChef = navB && !navB.classList.contains("hidden");
+    if (!isChef) return;
+    if (document.getElementById("imChSection")) return;
+    var sec = document.createElement("div");
+    sec.id = "imChSection";
+    sec.className = "fc";
+    sec.innerHTML = buildSection();
+    content.insertBefore(sec, content.firstChild);
+    refreshStatus();
+    var btn = document.getElementById("imChUploadBtn");
+    var fi = document.getElementById("imChFileInput");
+    if (btn && fi){
+      btn.onclick = function(){ fi.click(); };
+      fi.addEventListener("change", function(e){
+        if (e.target.files && e.target.files[0]) handleUpload(e.target.files[0]);
+        e.target.value = "";
+      });
+    }
+  }
+
+  function imInputHandler(e){
+    var t = e.target;
+    if (!t || !t.id) return;
+    var m = t.id.match(/^aIM_(\d+)$/);
+    if (!m) return;
+    var i = parseInt(m[1], 10);
+    var v = String(t.value || "").trim().toUpperCase();
+    var sel = document.getElementById("aCH_" + i);
+    if (!sel) return;
+    if (v.length === 7){
+      var ch = lookup(v);
+      if (ch){
+        var found = false;
+        for (var k = 0; k < sel.options.length; k++){ if (sel.options[k].value === ch){ found = true; break; } }
+        if (!found){
+          var opt = document.createElement("option");
+          opt.value = ch; opt.textContent = ch;
+          sel.insertBefore(opt, sel.firstChild);
+        }
+        sel.value = ch;
+        badge(i, true);
+        return;
+      }
+    }
+    badge(i, false);
+  }
+
+  function badge(i, show){
+    var sel = document.getElementById("aCH_" + i);
+    if (!sel) return;
+    var p = sel.parentNode;
+    var b = p.querySelector(".im-auto-badge");
+    if (show){
+      if (!b){
+        b = document.createElement("span");
+        b.className = "im-auto-badge";
+        b.textContent = "\u2713 auto";
+        b.style.cssText = "display:inline-block;margin-left:4px;padding:1px 5px;background:#dcfce7;color:#047857;border-radius:3px;font-size:9px;font-weight:600;vertical-align:middle;white-space:nowrap";
+        p.appendChild(b);
+      }
+    } else if (b){ b.remove(); }
+  }
+
+  async function init(){
+    if (IM.initialized) return;
+    IM.initialized = true;
+    try {
+      var s = await dbLoad();
+      if (s && s.bytes) await activate(s.bytes, s.meta);
+    } catch(e){ console.error("[v12fs] DB init:", e); }
+    if (window._fbReady && window._db && window._onSnapshot){
+      try {
+        window._onSnapshot(
+          window._doc(window._db, "meta", "im_chapter_info"),
+          function(snap){
+            if (!snap.exists()) return;
+            var remote = snap.data();
+            if (!remote.updatedAt) return;
+            if (IM.meta && IM.meta.updatedAt === remote.updatedAt) return;
+            if (IM.meta && IM.meta.updatedAt && new Date(remote.updatedAt) <= new Date(IM.meta.updatedAt)) return;
+            console.log("[v12fs] nouvelle version détectée — téléchargement");
+            downloadFromFirestore().then(function(){
+              refreshStatus();
+              if (typeof toast === "function") toast("✓ Liste matricules mise à jour", "success");
+            }).catch(function(e){ console.error("[v12fs] auto-download:", e); });
+          },
+          function(e){ console.error("[v12fs] snapshot:", e); }
+        );
+      } catch(e){ console.error("[v12fs] listener:", e); }
+    }
+    document.addEventListener("input", imInputHandler, false);
+  }
+
+  function wrapRenderConfig(){
+    if (!window.renderConfig || window.renderConfig.__v12fs) return false;
+    var orig = window.renderConfig;
+    window.renderConfig = function(){
+      orig.apply(this, arguments);
+      try { bindSection(); } catch(e){ console.error("[v12fs] wrap:", e); }
+    };
+    window.renderConfig.__v12fs = true;
+    return true;
+  }
+
+  function wrapLoginSuccess(){
+    if (!window.loginSuccess || window.loginSuccess.__v12fs) return false;
+    var orig = window.loginSuccess;
+    window.loginSuccess = function(){
+      orig.apply(this, arguments);
+      setTimeout(init, 500);
+    };
+    window.loginSuccess.__v12fs = true;
+    return true;
+  }
+
+  function boot(){
+    var t = 0;
+    var iv = setInterval(function(){
+      t++;
+      var a = wrapRenderConfig();
+      var b = wrapLoginSuccess();
+      if (a && b){ clearInterval(iv); console.log("[v12fs] wraps installed"); return; }
+      if (t > 200){ clearInterval(iv); console.warn("[v12fs] wrap timeout"); }
+    }, 100);
+    var start = Date.now();
+    (function loop(){
+      if (window._fbReady === true){ init(); return; }
+      if (window._fbReady === false){ console.warn("[v12fs] Firebase KO — mode local"); init(); return; }
+      if (Date.now() - start > 15000){ init(); return; }
+      setTimeout(loop, 100);
+    })();
+  }
+
+  boot();
+})();
+</script>
 </body>
 </html>
