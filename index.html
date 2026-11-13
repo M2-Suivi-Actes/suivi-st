@@ -5484,5 +5484,104 @@ var timer=setInterval(function(){
   waitV12();
 })();
 </script>
+
+<script>
+/* PATCH_V14_PERIODS_STATS_APPLIED */
+(function(){
+  "use strict";
+  if (window.__v14Applied) return;
+  window.__v14Applied = true;
+  var LT = String.fromCharCode(60), GT = String.fromCharCode(62);
+  console.log("[v14] Loading...");
+
+  function newGetPeriodes(){
+    var m = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+    var p = [];
+    var d = new Date(2026, 5, 1);
+    var end = new Date(2027, 11, 1);
+    while (d <= end){
+      p.push(m[d.getMonth()] + " " + d.getFullYear());
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    }
+    return p;
+  }
+
+  function newOpenStatsPage(){
+    try {
+      if (window.__v14StatsWin && !window.__v14StatsWin.closed){
+        window.__v14StatsWin.focus();
+        var rb = window.__v14StatsWin.document.getElementById("bRefresh");
+        if (rb) rb.click();
+        return;
+      }
+    } catch(e){}
+    var el = document.getElementById("statsPageData");
+    if (!el) return;
+    var html;
+    try {
+      var bin = atob(el.textContent.replace(/\s+/g, ""));
+      var u8 = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      html = new TextDecoder("utf-8").decode(u8);
+    } catch(e){
+      alert("Le module de statistiques est indisponible.");
+      return;
+    }
+    var defaultExp = (typeof state !== "undefined" && state && state.config && state.config.exploitation) || "";
+    if (defaultExp){
+      var injectGlobal = LT + "script" + GT + "window._m2DefaultExploitation=" + JSON.stringify(defaultExp) + ";" + LT + "/script" + GT;
+      var headRe = new RegExp(LT + "head[^" + GT + "]*" + GT, "i");
+      if (headRe.test(html)){
+        html = html.replace(headRe, function(m){ return m + injectGlobal; });
+      } else {
+        html = injectGlobal + html;
+      }
+      var origLine = "if(F.from==null&&window.__dataMin!=null){F.from=window.__dataMin;F.to=window.__dataMax;}";
+      var newCode = "if(window._m2DefaultExploitation){var _defOrd=monthOrd(window._m2DefaultExploitation);if(_defOrd!=null){F.from=_defOrd;F.to=_defOrd;if(PERIODS.indexOf(_defOrd)<0){PERIODS.push(_defOrd);PERIODS.sort(function(a,b){return a-b;});}}}" + origLine;
+      if (html.indexOf(origLine) !== -1){
+        html = html.replace(origLine, newCode);
+        console.log("[v14] Stats: fallback patché pour période par défaut");
+      } else {
+        console.warn("[v14] Stats: fallback line introuvable — vérifier version du module stats");
+      }
+    }
+    var w = window.open("", "_blank");
+    if (!w){
+      if (typeof toast === "function") toast("Autorisez les fenêtres pop-up pour ouvrir les statistiques", "error");
+      else alert("Autorisez les fenêtres pop-up pour ouvrir les statistiques.");
+      return;
+    }
+    window.__v14StatsWin = w;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+
+  function install(){
+    var a = false, b = false;
+    if (typeof window.getPeriodes === "function" && !window.getPeriodes.__v14){
+      window.getPeriodes = newGetPeriodes;
+      window.getPeriodes.__v14 = true;
+      a = true;
+      try { console.log("[v14] getPeriodes remplacé — " + newGetPeriodes().length + " périodes : " + newGetPeriodes()[0] + " → " + newGetPeriodes()[newGetPeriodes().length-1]); } catch(e){}
+    }
+    if (typeof window.openStatsPage === "function" && !window.openStatsPage.__v14){
+      window.openStatsPage = newOpenStatsPage;
+      window.openStatsPage.__v14 = true;
+      b = true;
+      console.log("[v14] openStatsPage remplacé");
+    }
+    return a && b;
+  }
+
+  if (install()) return;
+  var tries = 0;
+  var iv = setInterval(function(){
+    tries++;
+    if (install()){ clearInterval(iv); return; }
+    if (tries > 300){ clearInterval(iv); console.warn("[v14] timeout — getPeriodes:", typeof window.getPeriodes, "openStatsPage:", typeof window.openStatsPage); }
+  }, 100);
+})();
+</script>
 </body>
 </html>
