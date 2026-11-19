@@ -745,7 +745,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Nouvelle saisie
       </div>
       <div class="nav-item" onclick="showPage('recherche');closeSidebar()" id="nav-recherche">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Recherche IM ou N°ST
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Recherche ST
       </div>
       <div class="nav-item" onclick="showPage('rapports');closeSidebar()" id="nav-rapports">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Rapports Excel
@@ -870,7 +870,7 @@ td{padding:8px 10px;font-size:13px;vertical-align:middle}
     </div>
     <!-- RECHERCHE -->
     <div id="page-recherche" class="page-content hidden">
-      <div class="page-header"><div class="page-header-top"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="openSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">Recherche IM ou N°ST</div></div></div></div>
+      <div class="page-header"><div class="page-header-top"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="openSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><div class="page-title">Recherche ST</div></div></div></div>
       <div class="content"><div class="fc"><div class="fg"><label class="fl">Numéro ST ou IM</label><input type="text" id="searchInput" class="fi" placeholder="Entrer un N° ST ou IM..." oninput="doSearch()" /></div></div><div id="searchResults"></div></div>
     </div>
     <!-- RAPPORTS -->
@@ -3403,7 +3403,7 @@ function openSaisieWithType(type){
   document.getElementById('saisieAlert').innerHTML='';
   document.getElementById('saisieTypeLabel').textContent='— Type: '+type;
   ['fDateDCSAC','fNumeroST','fSigle','fPaquet'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.className='fi';}});
-  document.getElementById('fEdition').value='';
+  document.getElementById('fEdition').value='NORMALE';
   document.getElementById('fRespCESP').value='Auto';document.getElementById('fDateCESP').value='Auto';
   ['stHint','sigleHint','paquetHint','exploitHint'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
   const el=document.getElementById('fExploitation');
@@ -3425,7 +3425,7 @@ function resetSaisieFormKeepDate(dd){
   document.getElementById('saisieTypeLabel').textContent='— Type: '+selectedActeType;
   ['fNumeroST','fSigle','fPaquet'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.className='fi';}});
   document.getElementById('fDateDCSAC').value=dd||'';
-  document.getElementById('fEdition').value='';
+  document.getElementById('fEdition').value='NORMALE';
   document.getElementById('fRespCESP').value='Auto';document.getElementById('fDateCESP').value='Auto';
   ['stHint','sigleHint','paquetHint','exploitHint'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
   const el=document.getElementById('fExploitation');
@@ -5581,6 +5581,143 @@ var timer=setInterval(function(){
     if (install()){ clearInterval(iv); return; }
     if (tries > 300){ clearInterval(iv); console.warn("[v14] timeout — getPeriodes:", typeof window.getPeriodes, "openStatsPage:", typeof window.openStatsPage); }
   }, 100);
+})();
+</script>
+
+<script>
+/* PATCH_V16_FEB_ALL_MODULES_APPLIED */
+(function(){
+  "use strict";
+  if (window.__v16WrapApplied) return;
+  window.__v16WrapApplied = true;
+  console.log("[v16] Fix Fevrier tous modules loading...");
+  var MODULES = [
+    {name:"buildCalcul538563Html", inner:"function __v16effDay(d){\n  var day = d.getDate();\n  if (day === 31) return 30;\n  if (d.getMonth() === 1){\n    var lastFeb = new Date(d.getFullYear(), 2, 0).getDate();\n    if (day === lastFeb) return 30;\n  }\n  return day;\n}\ncountMonths = function(d1, d2, monthSet){\n  var a = n31(d1), b = n31(d2);\n  var y = a.getFullYear(), m = a.getMonth();\n  var ey = b.getFullYear(), em = b.getMonth();\n  var days = 0;\n  while (y < ey || (y === ey && m <= em)){\n    if (monthSet(m)) days += 30;\n    m++; if (m === 12){ m = 0; y++; }\n  }\n  if (monthSet(a.getMonth())) days -= (__v16effDay(d1) - 1);\n  if (monthSet(b.getMonth())) days -= (30 - __v16effDay(d2));\n  return days;\n};\ntry {\n  var _t = countMonths(new Date(2026,0,1), new Date(2026,1,28), function(m){ return [2,5,8,11].indexOf(m) < 0; });\n  console.log(\"[v16 CALC563] Test 01/01/2026 -> 28/02/2026 = \" + _t + \" (attendu : 60)\");\n} catch(_e){ console.error(\"[v16 CALC563] test error:\", _e); }", flag:"__v16Calc563"},
+    {name:"buildMvt63Html", inner:"function __v16effDay(d){\n  var day = d.getDate();\n  if (day === 31) return 30;\n  if (d.getMonth() === 1){\n    var lastFeb = new Date(d.getFullYear(), 2, 0).getDate();\n    if (day === lastFeb) return 30;\n  }\n  return day;\n}\nd360 = function(s, e){\n  var a = n31(s), b = n31(e);\n  var da = __v16effDay(s);\n  var db = __v16effDay(e);\n  return (b.getFullYear()-a.getFullYear())*360 + (b.getMonth()-a.getMonth())*30 + (db-da);\n};\ntry {\n  var _t = d360(new Date(2026,0,1), new Date(2026,1,28)) + 1;\n  console.log(\"[v16 MVT63] Test 01/01/2026 -> 28/02/2026 = \" + _t + \" (attendu : 60)\");\n} catch(_e){ console.error(\"[v16 MVT63] test error:\", _e); }", flag:"__v16Mvt63"},
+    {name:"buildMvt6777Html", inner:"function __v16effDay(d){\n  var day = d.getDate();\n  if (day === 31) return 30;\n  if (d.getMonth() === 1){\n    var lastFeb = new Date(d.getFullYear(), 2, 0).getDate();\n    if (day === lastFeb) return 30;\n  }\n  return day;\n}\nd360 = function(s, e){\n  var a = n31(s), b = n31(e);\n  var da = __v16effDay(s);\n  var db = __v16effDay(e);\n  return (b.getFullYear()-a.getFullYear())*360 + (b.getMonth()-a.getMonth())*30 + (db-da);\n};\ntry {\n  var _t = d360(new Date(2026,0,1), new Date(2026,1,28)) + 1;\n  console.log(\"[v16 MVT6777] Test 01/01/2026 -> 28/02/2026 = \" + _t + \" (attendu : 60)\");\n} catch(_e){ console.error(\"[v16 MVT6777] test error:\", _e); }", flag:"__v16Mvt6777"},
+    {name:"getBaremeChap21Html", inner:"function __v16effDay(d){\n  var day = d.getDate();\n  if (day === 31) return 30;\n  if (d.getMonth() === 1){\n    var lastFeb = new Date(d.getFullYear(), 2, 0).getDate();\n    if (day === lastFeb) return 30;\n  }\n  return day;\n}\ndays360US = function(start, end){\n  var a = norm31(start), b = norm31(end);\n  var da = __v16effDay(start);\n  var db = __v16effDay(end);\n  return (b.getFullYear()-a.getFullYear())*360 + (b.getMonth()-a.getMonth())*30 + (db-da);\n};\nmonthlyDays = function(start, end){\n  var a = norm31(start), b = norm31(end);\n  var am = a.getMonth();\n  var A = new Date(a);\n  if ([2,5,8,11].indexOf(am) >= 0) A = new Date(a.getFullYear(), am+1, 1);\n  var B = new Date(b);\n  var D = 30 - __v16effDay(A) + 1;\n  var E = [2,5,8,11].indexOf(B.getMonth()) >= 0 ? 0 : __v16effDay(B);\n  var C = monthSum(A, B, \"mens\");\n  return E === 0 ? C - 30 + D : C - 60 + D + E;\n};\nquarterlyDays = function(start, end){\n  var A = quarterStart(start), B = quarterEnd(end);\n  var D = 30 - __v16effDay(A) + 1;\n  var E = [3,4,5,9,10,11].indexOf(B.getMonth()) >= 0 ? 0 : __v16effDay(B);\n  var C = monthSum(A, B, \"trim\");\n  return E === 0 ? C - 30 + D : C - 60 + D + E;\n};\ntry {\n  var _t = monthlyDays(new Date(2026,0,1), new Date(2026,1,28));\n  console.log(\"[v16 CHAP21] Test mens 01/01/2026 -> 28/02/2026 = \" + _t + \" (attendu : 60)\");\n} catch(_e){ console.error(\"[v16 CHAP21] test error:\", _e); }", flag:"__v16Chap21"}
+  ];
+  function inject(html, code){
+    var SC = String.fromCharCode(60) + "/script" + String.fromCharCode(62);
+    var i = html.lastIndexOf(SC);
+    if (i === -1) { console.warn("[v16] no script close"); return html; }
+    var inner = html.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 6000) { console.warn("[v16] IIFE introuvable"); return html; }
+    return inner.slice(0, ii) + code + String.fromCharCode(10) + html.slice(ii);
+  }
+  function install(mod){
+    if (window[mod.flag + "_done"]) return true;
+    var orig = window[mod.name];
+    if (typeof orig !== "function") return false;
+    if (orig.__v16Wrapped) { window[mod.flag + "_done"] = true; return true; }
+    var w = function(){ return inject(orig.apply(this, arguments), mod.inner); };
+    w.__v16Wrapped = true;
+    window[mod.name] = w;
+    window[mod.flag + "_done"] = true;
+    console.log("[v16] " + mod.name + " wrapped");
+    return true;
+  }
+  var tries = 0;
+  var iv = setInterval(function(){
+    tries++;
+    var done = true;
+    for (var k = 0; k < MODULES.length; k++){
+      if (!install(MODULES[k])) done = false;
+    }
+    if (done){ clearInterval(iv); console.log("[v16] Tous modules patches"); return; }
+    if (tries > 200){ clearInterval(iv); console.warn("[v16] timeout"); }
+  }, 50);
+})();
+</script>
+
+<script>
+/* PATCH_V17_AUTRES_MIN_FIX_APPLIED */
+(function(){
+  "use strict";
+  if (window.__v17Applied) return;
+  window.__v17Applied = true;
+  var LT = String.fromCharCode(60);
+  var GT = String.fromCharCode(62);
+  var SC_STR = LT + "/script" + GT;
+  var INNER = "/* v17 fix Autres Ministeres: Fevrier 28/29 = jour 30 */\nif (typeof __v16effDay !== \"function\"){\n  window.__v16effDay = function(d){\n    var day = d.getDate();\n    if (day === 31) return 30;\n    if (d.getMonth() === 1){\n      var lastFeb = new Date(d.getFullYear(), 2, 0).getDate();\n      if (day === lastFeb) return 30;\n    }\n    return day;\n  };\n}\ndays360US = function(start, end){\n  var a = norm31(start), b = norm31(end);\n  var da = __v16effDay(start);\n  var db = __v16effDay(end);\n  return (b.getFullYear()-a.getFullYear())*360 + (b.getMonth()-a.getMonth())*30 + (db-da);\n};\nmonthlyDays = function(start, end){\n  var a = norm31(start), b = norm31(end);\n  var am = a.getMonth();\n  var A = new Date(a);\n  if ([2,5,8,11].indexOf(am) >= 0) A = new Date(a.getFullYear(), am+1, 1);\n  var B = new Date(b);\n  var D = 30 - __v16effDay(A) + 1;\n  var E = [2,5,8,11].indexOf(B.getMonth()) >= 0 ? 0 : __v16effDay(B);\n  var C = monthSum(A, B, \"mens\");\n  return E === 0 ? C - 30 + D : C - 60 + D + E;\n};\nquarterlyDays = function(start, end){\n  var A = quarterStart(start), B = quarterEnd(end);\n  var D = 30 - __v16effDay(A) + 1;\n  var E = [3,4,5,9,10,11].indexOf(B.getMonth()) >= 0 ? 0 : __v16effDay(B);\n  var C = monthSum(A, B, \"trim\");\n  return E === 0 ? C - 30 + D : C - 60 + D + E;\n};\ntry {\n  var _t = monthlyDays(new Date(2026,0,1), new Date(2026,1,28));\n  console.log(\"[v17 AUTRES] Test mens 01/01/2026 -> 28/02/2026 = \" + _t + \" (attendu : 60)\");\n} catch(_e){ console.error(\"[v17 AUTRES] test error:\", _e); }\nconsole.log(\"[v17 AUTRES] Patch Fevrier applique dans iframe Autres Ministeres\");";
+  console.log("[v17] Fix Autres Ministeres loading...");
+
+  function injectIntoHTML(html){
+    var i = html.lastIndexOf(SC_STR);
+    if (i === -1) return html;
+    var inner = html.slice(0, i);
+    var ii = inner.lastIndexOf("})();");
+    if (ii === -1 || (i - ii) > 6000) return html;
+    return inner.slice(0, ii) + INNER + String.fromCharCode(10) + html.slice(ii);
+  }
+
+  function patchSrcdoc(){
+    try {
+      var desc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, "srcdoc");
+      if (!desc || !desc.set) { console.warn("[v17] srcdoc descriptor inaccessible"); return false; }
+      if (desc.set.__v17patched) { console.log("[v17] srcdoc deja patche"); return true; }
+      var origSet = desc.set;
+      var newSet = function(v){
+        if (typeof v === "string" && v.indexOf("days360US") !== -1 && v.indexOf("__v16effDay") === -1){
+          var before = v.length;
+          v = injectIntoHTML(v);
+          console.log("[v17] srcdoc intercepte et patche (" + before + " -> " + v.length + " octets)");
+        }
+        return origSet.call(this, v);
+      };
+      newSet.__v17patched = true;
+      Object.defineProperty(HTMLIFrameElement.prototype, "srcdoc", {
+        get: desc.get,
+        set: newSet,
+        configurable: true,
+        enumerable: desc.enumerable
+      });
+      console.log("[v17] srcdoc interception activee");
+      return true;
+    } catch(e){ console.error("[v17] srcdoc patch error:", e); return false; }
+  }
+
+  function wrapLoadOutils(){
+    if (!window.loadOutils || window.loadOutils.__v17wrapped) return false;
+    var orig = window.loadOutils;
+    window.loadOutils = function(){
+      var result = orig.apply(this, arguments);
+      var tool = window._outilsSoldeCurrentTool || "chap21";
+      if (tool === "autres"){
+        setTimeout(function(){
+          var f = document.getElementById("outilsSoldeFrame");
+          if (!f) return;
+          try {
+            var sd = f.getAttribute("srcdoc") || f.srcdoc || "";
+            if (sd && sd.indexOf("days360US") !== -1 && sd.indexOf("__v16effDay") === -1){
+              var patched = injectIntoHTML(sd);
+              f.removeAttribute("src");
+              f.srcdoc = patched;
+              f.setAttribute("data-loaded", "1");
+              console.log("[v17] loadOutils fallback: srcdoc repatche");
+            }
+          } catch(e){ console.error("[v17] fallback error:", e); }
+        }, 50);
+      }
+      return result;
+    };
+    window.loadOutils.__v17wrapped = true;
+    console.log("[v17] loadOutils wrapped (fallback)");
+    return true;
+  }
+
+  if (patchSrcdoc()){
+    console.log("[v17] Strategy principale: srcdoc interception");
+  } else {
+    console.warn("[v17] srcdoc non patche, utilisation du fallback");
+  }
+  var tries = 0;
+  var iv = setInterval(function(){
+    tries++;
+    if (wrapLoadOutils()){ clearInterval(iv); return; }
+    if (tries > 200){ clearInterval(iv); }
+  }, 50);
 })();
 </script>
 </body>
