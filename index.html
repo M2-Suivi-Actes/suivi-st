@@ -3718,7 +3718,7 @@ async function _submitSaisieCore(){
   if(!isC&&!/^[A-Za-z0-9]{1,6}$/.test(pa))errs.push('Paquet: max 6 car.');
   if(pa&&!/^[A-Za-z0-9]{1,6}$/.test(pa))errs.push('Paquet: max 6 car.');
   if(acteRows.length===0)errs.push('Au moins un acte requis');
-  acteRows.forEach((a,i)=>{if(!a.im||!(/^\d{7}$/.test(a.im)||/^[A-Za-z]\d{6}$/.test(a.im)))errs.push(`Acte ${i+1}: IM invalide (7 car.)`);if(!a.mvt)errs.push(`Acte ${i+1}: MVT requis`);});
+  acteRows.forEach((a,i)=>{if(!a.im||!(/^\d{7}$/.test(a.im)||/^[A-Za-z]\d{6}$/.test(a.im)||/^\d[A-Za-z]\d{5}$/.test(a.im)))errs.push(`Acte ${i+1}: IM invalide (7 car.)`);if(!a.mvt)errs.push(`Acte ${i+1}: MVT requis`);});
   if(!editCtx&&si&&pa&&ex&&ed){const dup=allData().find(r=>r.sigle===si&&r.paquet&&r.paquet.toUpperCase()===pa.toUpperCase()&&r.exploitation===ex&&r.edition===ed);if(dup)errs.push({html:`Le Sigle <b>${escHtml(si)}</b>/Paquet <b>${escHtml(pa)}</b> est déjà utilisé par <b>${escHtml(dup.createdBy||'—')}</b> durant l'exploitation <b>${escHtml(dup.exploitation)}</b>. <a href="#" onclick="closeErrorModal();showEntryById('${escHtml(dup._id)}','${escHtml(dup._sh)}');return false;" style="color:var(--accent)">Voir l'enregistrement →</a>`});}
   if(errs.length){showErrorModal(errs);return;}
   const sh=editCtx?editCtx.sheetName:(cu.role==='chef'?'CHEF_BUREAU':(cu.sheet||'VICKY'));
